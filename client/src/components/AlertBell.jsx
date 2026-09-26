@@ -75,6 +75,7 @@ export function AlertBell() {
       localStorage.setItem(READ_ALERTS_KEY, JSON.stringify(combined));
     } catch {}
   };
+
   return (
     <div className="bell-wrap" ref={dropdownRef}>
       <button
