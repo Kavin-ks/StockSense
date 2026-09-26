@@ -2,7 +2,6 @@ import pg from 'pg';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PGlite } from '@electric-sql/pglite';
 import { env } from '../config/env.js';
 
 // Return NUMERIC columns as JS numbers (quantities / costs fit comfortably).
@@ -20,7 +19,7 @@ async function getBackend() {
     const pgPool = new pg.Pool({
       connectionString: env.DATABASE_URL,
       max: 10,
-      connectionTimeoutMillis: 1500,
+      connectionTimeoutMillis: 2000,
     });
     const client = await pgPool.connect();
     client.release();
@@ -47,7 +46,19 @@ async function getBackend() {
     };
     return activeBackend;
   } catch (err) {
-    console.log('[Database] PostgreSQL connection failed. Falling back to embedded PGlite...');
+    console.warn('[Database] PostgreSQL connection failed. Attempting PGlite fallback...', err.message);
+
+    // Optional dynamic fallback for environments without PostgreSQL
+    let PGlite;
+    try {
+      const pgliteModule = await import('@electric-sql/pglite');
+      PGlite = pgliteModule.PGlite;
+    } catch {
+      throw new Error(
+        `Failed to connect to PostgreSQL at ${env.DATABASE_URL}, and optional embedded @electric-sql/pglite is not installed. Please verify your PostgreSQL server is running.`
+      );
+    }
+
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const dataDir = path.resolve(__dirname, '../../data/stocksense.db');
     if (!fs.existsSync(path.dirname(dataDir))) {
