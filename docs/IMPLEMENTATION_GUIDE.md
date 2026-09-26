@@ -145,15 +145,26 @@ adjustment         : created directly as done
   - JWT sessions (8h). A rate limiter guards the auth routes (50 requests / 15 minutes / IP). `helmet` and CORS are enabled.
 - **Criteria:** validation (5), security (11), no third-party auth service (3).
 
-### 5.2 Dashboard — ✅ complete (see gap G6)
+### 5.2 Dashboard — ✅ complete
 - **What:** KPIs: products in stock, low stock, out of stock, pending receipts, pending deliveries, internal
-  transfers scheduled. Receipt and Delivery cards ("N to receive", Late, Waiting, Upcoming) as in the mock-up,
-  plus a low-stock alert list.
-- **Files:** `server/src/modules/dashboard/*`, `client/src/pages/DashboardPage.jsx`.
-- **How:** Two aggregate SQL queries using `count(*) FILTER (...)`, so the DB does the work however much data there is.
-  Filters: warehouse and product category (kept in the URL). KPI cards link to the pre-filtered list screens.
-  "Late" means scheduled date < today and status not done/canceled.
-- **Criteria:** performance (10), real-time data (4), UI (8).
+  transfers scheduled. Receipt and Delivery cards ("N to receive", Late, Waiting, Upcoming) as in the mock-up.
+  An **Operations by status** grid (document type × status), a filtered operations table, and low-stock alerts.
+- **Files:** `server/src/modules/dashboard/*`, `client/src/pages/DashboardPage.jsx`, `client/src/components/FilterBar.jsx`.
+- **Filters (all from the PDF):** document type, status, warehouse, **location**, product category. They're stored in the URL.
+  - Warehouse / location / category narrow **every** KPI, card and the grid.
+  - Document type / status narrow the operations table and **highlight** the matching grid row/column and cards
+    (others are dimmed). Clicking a grid cell applies that type + status.
+  - KPI cards and "View all" links carry the current filters into the list pages.
+- **How:**
+  - Two aggregate SQL queries (stock per product; operations grouped by type × status) regardless of data size.
+    Late = scheduled date < today and still open.
+  - `resolveScope()` in `warehouses.service.js` rejects a location that isn't in the selected warehouse with a
+    field error. A location does **not** imply a warehouse filter, so cross-warehouse transfers still appear under
+    both warehouses. When only a location is chosen, reorder minimums use that location's warehouse.
+- **Same `FilterBar` reused on:** operation lists (status, warehouse, location, category, search, late-only),
+  Products/Stock (warehouse, location, category, stock level; quantities are recalculated for the scope),
+  and Move History (document type, warehouse, location, category, direction, dates).
+- **Criteria:** performance (10), real-time data (4), UI (8), modularity (9: one filter component, one scope resolver).
 
 ### 5.3 Products — ✅ complete
 - **What:** Create/update products (name, SKU, category, unit of measure, unit cost, **optional initial stock**),
@@ -280,11 +291,8 @@ confirm the acceptance criteria are met.
   Validate once packed. Keep the status enum unchanged, or add `'packed'` carefully and update `STATUS_FLOW` in `client/src/utils.js`.
 - **Also:** hide **Validate** on a `waiting` delivery until all lines are in stock (right now it's shown and returns a clear error). Show "Check availability", which calls `confirm` again.
 
-### G6. Dashboard filters by document type & status — LOW (criteria: matches the problem statement)
-- **Current state:** The dashboard filters by warehouse and category. Filters by document type (Receipts/Delivery/Internal/Adjustments)
-  and status exist on the **operation list pages**, not on the dashboard.
-- **Build:** Add a "Recent operations" table on the dashboard with type and status dropdowns, using the existing
-  `GET /api/operations?type&status&warehouseId&categoryId` endpoint (no backend work needed). Reuse `DataTable` and `StatusBadge`.
+### G6. Dashboard filters by document type, status & location — ✅ DONE
+See section 5.2. Remaining idea (optional): let the type/status filters also narrow the KPI numbers, instead of only highlighting them.
 
 ### G7. Low-stock notifications — LOW (criteria: additional features)
 - **Build:** After any validate/adjustment that decreases stock, check the reorder rules for the affected products
