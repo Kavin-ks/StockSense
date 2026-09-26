@@ -36,7 +36,6 @@ export function Layout() {
   const pathname = location.pathname;
 
   // Active state checkers
-  const isDashboardActive = pathname === '/';
   const isOperationsActive = pathname.startsWith('/operations');
   const isProductsActive =
     pathname.startsWith('/products') ||
@@ -101,7 +100,7 @@ export function Layout() {
       ======================================================== */}
       <header className="top-nav-header" ref={navRef}>
         <div className="top-nav-inner">
-          {/* Left Brand + Mobile Toggle */}
+          {/* Left: Brand */}
           <div className="top-nav-left">
             <button
               type="button"
@@ -118,7 +117,7 @@ export function Layout() {
             </NavLink>
           </div>
 
-          {/* Center Navigation Links & Mega-Menu Dropdowns (Desktop) */}
+          {/* Center: Navigation Links & Single-Column Dropdowns */}
           <nav className="top-nav-menu" aria-label="Main Navigation">
             {/* 1. Dashboard */}
             <NavLink
@@ -132,7 +131,7 @@ export function Layout() {
               <span>Dashboard</span>
             </NavLink>
 
-            {/* 2. Operations Dropdown */}
+            {/* 2. Operations Dropdown (Single Column - One under another) */}
             <div
               className={`top-nav-dropdown-wrap ${
                 activeDropdown === 'operations' ? 'open' : ''
@@ -159,97 +158,85 @@ export function Layout() {
               </button>
 
               {activeDropdown === 'operations' && (
-                <div className="mega-menu-panel operations-panel">
-                  <div className="mega-menu-columns">
-                    {/* Column 1 */}
-                    <div className="mega-column">
-                      <div className="mega-column-heading">
-                        Inward & Outward Logistics
+                <div className="nav-dropdown-panel">
+                  <div className="dropdown-items-list">
+                    <NavLink
+                      to="/operations/receipts"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box in">
+                        <ArrowDownToLine size={18} />
                       </div>
-                      <NavLink
-                        to="/operations/receipts"
-                        className={({ isActive }) =>
-                          `mega-item ${isActive ? 'active' : ''}`
-                        }
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className="mega-item-icon-box in">
-                          <ArrowDownToLine size={18} />
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Receipts</div>
+                        <div className="dropdown-item-desc">
+                          Inward vendor deliveries & dock receiving
                         </div>
-                        <div className="mega-item-text">
-                          <div className="mega-item-title">Receipts</div>
-                          <div className="mega-item-desc">
-                            Inward vendor deliveries & dock receiving
-                          </div>
-                        </div>
-                      </NavLink>
-
-                      <NavLink
-                        to="/operations/deliveries"
-                        className={({ isActive }) =>
-                          `mega-item ${isActive ? 'active' : ''}`
-                        }
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className="mega-item-icon-box out">
-                          <Truck size={18} />
-                        </div>
-                        <div className="mega-item-text">
-                          <div className="mega-item-title">Deliveries</div>
-                          <div className="mega-item-desc">
-                            Outward picking, packing & shipment dispatch
-                          </div>
-                        </div>
-                      </NavLink>
-                    </div>
-
-                    {/* Column 2 */}
-                    <div className="mega-column">
-                      <div className="mega-column-heading">
-                        Internal Warehouse Operations
                       </div>
-                      <NavLink
-                        to="/operations/transfers"
-                        className={({ isActive }) =>
-                          `mega-item ${isActive ? 'active' : ''}`
-                        }
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className="mega-item-icon-box transfer">
-                          <ArrowLeftRight size={18} />
-                        </div>
-                        <div className="mega-item-text">
-                          <div className="mega-item-title">Internal Transfers</div>
-                          <div className="mega-item-desc">
-                            Inter-location relocations & bin replenishments
-                          </div>
-                        </div>
-                      </NavLink>
+                    </NavLink>
 
-                      <NavLink
-                        to="/operations/adjustments"
-                        className={({ isActive }) =>
-                          `mega-item ${isActive ? 'active' : ''}`
-                        }
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className="mega-item-icon-box adjustment">
-                          <Scale size={18} />
+                    <NavLink
+                      to="/operations/deliveries"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box out">
+                        <Truck size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Deliveries</div>
+                        <div className="dropdown-item-desc">
+                          Outward picking, packing & shipment dispatch
                         </div>
-                        <div className="mega-item-text">
-                          <div className="mega-item-title">Adjustments</div>
-                          <div className="mega-item-desc">
-                            Physical cycle counts & stock discrepancy fixes
-                          </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/operations/transfers"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box transfer">
+                        <ArrowLeftRight size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Internal Transfers</div>
+                        <div className="dropdown-item-desc">
+                          Inter-location relocations & bin replenishments
                         </div>
-                      </NavLink>
-                    </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/operations/adjustments"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box adjustment">
+                        <Scale size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Adjustments</div>
+                        <div className="dropdown-item-desc">
+                          Physical cycle counts & stock discrepancy fixes
+                        </div>
+                      </div>
+                    </NavLink>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* 3. Products Dropdown */}
+            {/* 3. Products Dropdown (Single Column - One under another) */}
             <div
               className={`top-nav-dropdown-wrap ${
                 activeDropdown === 'products' ? 'open' : ''
@@ -276,98 +263,86 @@ export function Layout() {
               </button>
 
               {activeDropdown === 'products' && (
-                <div className="mega-menu-panel products-panel">
-                  <div className="mega-menu-columns">
-                    {/* Column 1 */}
-                    <div className="mega-column">
-                      <div className="mega-column-heading">
-                        Catalog & Categories
+                <div className="nav-dropdown-panel">
+                  <div className="dropdown-items-list">
+                    <NavLink
+                      to="/products"
+                      end
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box product">
+                        <Package size={18} />
                       </div>
-                      <NavLink
-                        to="/products"
-                        end
-                        className={({ isActive }) =>
-                          `mega-item ${isActive ? 'active' : ''}`
-                        }
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className="mega-item-icon-box product">
-                          <Package size={18} />
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Products</div>
+                        <div className="dropdown-item-desc">
+                          Master SKU registry, barcodes & reorder rules
                         </div>
-                        <div className="mega-item-text">
-                          <div className="mega-item-title">Products</div>
-                          <div className="mega-item-desc">
-                            Master SKU registry, barcodes & reorder rules
-                          </div>
-                        </div>
-                      </NavLink>
-
-                      <NavLink
-                        to="/products/categories"
-                        className={({ isActive }) =>
-                          `mega-item ${isActive ? 'active' : ''}`
-                        }
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className="mega-item-icon-box category">
-                          <Tags size={18} />
-                        </div>
-                        <div className="mega-item-text">
-                          <div className="mega-item-title">Categories</div>
-                          <div className="mega-item-desc">
-                            Product taxonomy, families & classification
-                          </div>
-                        </div>
-                      </NavLink>
-                    </div>
-
-                    {/* Column 2 */}
-                    <div className="mega-column">
-                      <div className="mega-column-heading">
-                        Inventory & Audit Trail
                       </div>
-                      <NavLink
-                        to="/stock"
-                        className={({ isActive }) =>
-                          `mega-item ${isActive ? 'active' : ''}`
-                        }
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className="mega-item-icon-box stock">
-                          <Boxes size={18} />
-                        </div>
-                        <div className="mega-item-text">
-                          <div className="mega-item-title">Stock Quants</div>
-                          <div className="mega-item-desc">
-                            Real-time on-hand balances by storage location
-                          </div>
-                        </div>
-                      </NavLink>
+                    </NavLink>
 
-                      <NavLink
-                        to="/moves"
-                        className={({ isActive }) =>
-                          `mega-item ${isActive ? 'active' : ''}`
-                        }
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        <div className="mega-item-icon-box moves">
-                          <History size={18} />
+                    <NavLink
+                      to="/stock"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box stock">
+                        <Boxes size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Stock Quants</div>
+                        <div className="dropdown-item-desc">
+                          Real-time on-hand balances by storage location
                         </div>
-                        <div className="mega-item-text">
-                          <div className="mega-item-title">Move History</div>
-                          <div className="mega-item-desc">
-                            Immutable stock ledger & full movement traceability
-                          </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/products/categories"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box category">
+                        <Tags size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Categories</div>
+                        <div className="dropdown-item-desc">
+                          Product taxonomy, families & classification
                         </div>
-                      </NavLink>
-                    </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/moves"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box moves">
+                        <History size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Move History</div>
+                        <div className="dropdown-item-desc">
+                          Immutable stock ledger & full movement traceability
+                        </div>
+                      </div>
+                    </NavLink>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* 4. Settings Dropdown */}
+            {/* 4. Settings Dropdown (Single Column - One under another) */}
             <div
               className={`top-nav-dropdown-wrap ${
                 activeDropdown === 'settings' ? 'open' : ''
@@ -394,24 +369,21 @@ export function Layout() {
               </button>
 
               {activeDropdown === 'settings' && (
-                <div className="mega-menu-panel settings-panel">
-                  <div className="mega-column" style={{ width: '100%' }}>
-                    <div className="mega-column-heading">
-                      Facilities & Storage Setup
-                    </div>
+                <div className="nav-dropdown-panel">
+                  <div className="dropdown-items-list">
                     <NavLink
                       to="/settings/warehouses"
                       className={({ isActive }) =>
-                        `mega-item ${isActive ? 'active' : ''}`
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
                       }
                       onClick={() => setActiveDropdown(null)}
                     >
-                      <div className="mega-item-icon-box settings">
+                      <div className="dropdown-icon-box settings">
                         <Warehouse size={18} />
                       </div>
-                      <div className="mega-item-text">
-                        <div className="mega-item-title">Warehouses</div>
-                        <div className="mega-item-desc">
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Warehouses</div>
+                        <div className="dropdown-item-desc">
                           Physical distribution hubs & facility codes
                         </div>
                       </div>
@@ -420,16 +392,16 @@ export function Layout() {
                     <NavLink
                       to="/settings/locations"
                       className={({ isActive }) =>
-                        `mega-item ${isActive ? 'active' : ''}`
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
                       }
                       onClick={() => setActiveDropdown(null)}
                     >
-                      <div className="mega-item-icon-box settings">
+                      <div className="dropdown-icon-box settings">
                         <MapPin size={18} />
                       </div>
-                      <div className="mega-item-text">
-                        <div className="mega-item-title">Locations</div>
-                        <div className="mega-item-desc">
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Locations</div>
+                        <div className="dropdown-item-desc">
                           Internal storage aisles, zones, shelves & bins
                         </div>
                       </div>
