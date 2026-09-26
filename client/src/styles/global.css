@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 /* StockSense design system — one set of tokens drives every screen. */
 :root, [data-theme="light"] {
@@ -80,6 +80,7 @@ a:hover { text-decoration: underline; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; }
 .muted { color: var(--muted); }
 .text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
 .text-warn { color: var(--warn); }
 .spacer { flex: 1; }
 .center { text-align: center; justify-content: center; }
@@ -273,6 +274,108 @@ a.kpi:hover { border-color: var(--primary); text-decoration: none; }
 .auth-card h1 { margin-top: 8px; }
 .auth-card > .muted { margin: 4px 0 20px; }
 .auth-links { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; flex-wrap: wrap; }
+
+/* ------------------------------------------------ password live validation & toggle */
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.password-input-wrap .input {
+  padding-right: 40px;
+}
+.password-toggle-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  border-radius: 6px;
+  line-height: 1;
+}
+.password-toggle-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.password-toggle-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.password-requirements {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.password-requirements-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.password-requirements-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.password-req-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  transition: color .15s ease;
+}
+.password-req-item.neutral {
+  color: var(--muted);
+}
+.password-req-item.satisfied {
+  color: var(--success);
+}
+.password-req-item.unsatisfied {
+  color: var(--danger);
+}
+.password-req-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.confirm-feedback {
+  margin-top: 5px;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.confirm-feedback.match {
+  color: var(--success);
+}
+.confirm-feedback.mismatch {
+  color: var(--danger);
+}
+.confirm-feedback-icon {
+  font-weight: 700;
+  font-size: 13px;
+}
 
 /* ------------------------------------------------ print (receipts / delivery slips) */
 @media print {
