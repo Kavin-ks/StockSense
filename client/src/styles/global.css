@@ -535,100 +535,155 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
   color: var(--danger);
 }
 
-/* Mobile Navigation Drawer */
-.top-mobile-drawer {
+/* Mobile Sidebar Drawer (The Before One) */
+.mobile-sidebar {
   position: fixed;
-  top: 64px;
+  top: 0;
   left: 0;
-  right: 0;
   bottom: 0;
+  width: 270px;
+  max-width: 85vw;
   background: var(--surface);
-  border-top: 1px solid var(--border);
-  z-index: 90;
-  overflow-y: auto;
-  padding: 16px 20px 32px;
-  animation: megaMenuFadeIn 0.2s ease;
-}
-
-.top-mobile-backdrop {
-  position: fixed;
-  inset: 0;
-  top: 64px;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 85;
-}
-
-.mobile-nav-content {
+  border-right: 1px solid var(--border);
+  box-shadow: 4px 0 28px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-width: 480px;
-  margin: 0 auto;
+  padding: 16px 12px;
+  z-index: 1000;
+  transform: translateX(-100%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
 }
 
-.mobile-nav-group {
+.mobile-sidebar.open {
+  transform: translateX(0);
+}
+
+.mobile-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.mobile-close-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mobile-close-btn:hover {
+  background: var(--border);
+}
+
+.mobile-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.mobile-sidebar .nav-group {
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 0;
-  border-top: 1px solid var(--border);
 }
 
-.mobile-group-title {
+.mobile-sidebar .nav-group-title {
   font-size: 11px;
-  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--muted);
-  padding: 6px 12px;
+  padding: 4px 10px;
+  font-weight: 700;
 }
 
-.mobile-nav-link {
+.mobile-sidebar .nav-link {
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: var(--text);
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 14px;
+  gap: 10px;
+  font-size: 13.5px;
   font-weight: 500;
-  color: var(--text);
+  transition: all 0.15s;
   text-decoration: none;
-  transition: background 0.15s;
 }
 
-.mobile-nav-link:hover {
+.mobile-sidebar .nav-link:hover {
   background: var(--surface-2);
   text-decoration: none;
 }
 
-.mobile-nav-link.active {
+.mobile-sidebar .nav-link .nav-icon {
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.mobile-sidebar .nav-link:hover .nav-icon,
+.mobile-sidebar .nav-link.active .nav-icon {
+  opacity: 1;
+  color: var(--primary);
+}
+
+.mobile-sidebar .nav-link.active {
   background: var(--primary-soft);
   color: var(--primary);
   font-weight: 600;
 }
 
-.mobile-user-section {
+.mobile-sidebar .profile-menu {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
-  margin-top: 8px;
 }
 
-.mobile-logout-btn {
+.mobile-sidebar .profile-link {
   display: flex;
-  align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  align-items: center;
+  color: var(--text);
+  padding: 6px;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--danger);
-  background: var(--danger-soft);
-  border: none;
-  cursor: pointer;
-  width: 100%;
+  text-decoration: none;
+}
+
+.mobile-sidebar .profile-link:hover,
+.mobile-sidebar .profile-link.active {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+
+.mobile-sidebar .profile-link small {
+  display: block;
+}
+
+.mobile-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.mobile-scrim.open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Responsive Media Queries */
