@@ -103,41 +103,46 @@ export default function ProfilePage() {
       .toUpperCase();
   };
 
-  const handleAvatarChange = async (e) => {
+  const AVATAR_STORAGE_KEY = 'stocksense_avatar_' + (user?.id || 'default');
+
+  const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return notify('Please select an image file (PNG, JPG, WebP, GIF)');
     }
     if (file.size > 2 * 1024 * 1024) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return notify('Image size must be under 2MB');
     }
-    setUploadingAvatar(true);
-    try {
-      const formData = new FormData();
-      formData.append('avatar', file);
-      const res = await authApi.uploadAvatar(formData);
-      if (setUser) setUser((prev) => ({ ...prev, avatarUrl: res.avatarUrl }));
-      notify('Profile photo updated successfully!');
-    } catch (err) {
-      notify(err.message || 'Failed to upload profile photo');
-    } finally {
-      setUploadingAvatar(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result;
+      if (typeof dataUrl === 'string') {
+        try {
+          localStorage.setItem(AVATAR_STORAGE_KEY, dataUrl);
+        } catch {
+          /* ignore storage quota limits */
+        }
+        if (setUser) setUser((prev) => (prev ? { ...prev, avatarUrl: dataUrl } : prev));
+        notify('Profile photo updated successfully!');
+      }
+    };
+    reader.onerror = () => {
+      notify('Failed to read image file');
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleAvatarDelete = async () => {
-    setUploadingAvatar(true);
+  const handleAvatarDelete = () => {
     try {
-      await authApi.deleteAvatar();
-      if (setUser) setUser((prev) => ({ ...prev, avatarUrl: null }));
-      notify('Profile photo removed');
-    } catch (err) {
-      notify(err.message || 'Failed to remove profile photo');
-    } finally {
-      setUploadingAvatar(false);
-    }
+      localStorage.removeItem(AVATAR_STORAGE_KEY);
+    } catch {}
+    if (setUser) setUser((prev) => (prev ? { ...prev, avatarUrl: null } : prev));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    notify('Profile photo removed');
   };
 
   const copyLoginId = () => {
