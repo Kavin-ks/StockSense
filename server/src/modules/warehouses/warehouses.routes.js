@@ -11,7 +11,13 @@ export const warehouseRouter = Router();
 export const locationRouter = Router();
 const canWrite = requirePermission('settings.write');
 
-warehouseRouter.get('/', asyncHandler(async (_req, res) => res.json(await service.listWarehouses())));
+const archivedQuery = z.object({ includeArchived: z.enum(['true', 'false']).optional().transform((v) => v === 'true') });
+warehouseRouter.get('/', validate({ query: archivedQuery }), asyncHandler(async (req, res) =>
+  res.json(await service.listWarehouses(req.valid.query))));
+warehouseRouter.post('/:id/archive', canWrite, validate({ params: idParam }), asyncHandler(async (req, res) =>
+  res.json(await service.setWarehouseActive(req.valid.params.id, false, req.user))));
+warehouseRouter.post('/:id/restore', canWrite, validate({ params: idParam }), asyncHandler(async (req, res) =>
+  res.json(await service.setWarehouseActive(req.valid.params.id, true, req.user))));
 warehouseRouter.get('/:id', validate({ params: idParam }), asyncHandler(async (req, res) =>
   res.json(await service.getWarehouse(req.valid.params.id))));
 warehouseRouter.post('/', canWrite, validate({ body: warehouseSchema }), asyncHandler(async (req, res) =>
@@ -22,7 +28,12 @@ warehouseRouter.put('/:id', canWrite, validate({ params: idParam, body: warehous
 const locationQuery = z.object({
   warehouseId: optionalId,
   includeVirtual: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+  includeArchived: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
 });
+locationRouter.post('/:id/archive', canWrite, validate({ params: idParam }), asyncHandler(async (req, res) =>
+  res.json(await service.setLocationActive(req.valid.params.id, false, req.user))));
+locationRouter.post('/:id/restore', canWrite, validate({ params: idParam }), asyncHandler(async (req, res) =>
+  res.json(await service.setLocationActive(req.valid.params.id, true, req.user))));
 locationRouter.get('/', validate({ query: locationQuery }), asyncHandler(async (req, res) =>
   res.json(await service.listLocations(req.valid.query))));
 locationRouter.post('/', canWrite, validate({ body: locationSchema }), asyncHandler(async (req, res) =>

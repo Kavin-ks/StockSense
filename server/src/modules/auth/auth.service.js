@@ -3,13 +3,13 @@ import { randomInt } from 'node:crypto';
 import { query, withTransaction } from '../../db/pool.js';
 import { env } from '../../config/env.js';
 import { AppError } from '../../utils/AppError.js';
-import { STATUS_MESSAGES, signToken } from '../../middleware/auth.js';
+import { STATUS_MESSAGES, createSession, signToken } from '../../middleware/auth.js';
 import { permissionsFor } from '../../config/permissions.js';
 import { sendMail } from '../../utils/mailer.js';
 import { publish } from '../realtime/realtime.bus.js';
 
 export const PUBLIC_COLUMNS = `id, login_id AS "loginId", name, email, role, status, avatar_url AS "avatarUrl",
-  created_at AS "createdAt", approved_at AS "approvedAt"`;
+  phone, department, created_at AS "createdAt", approved_at AS "approvedAt", password_changed_at AS "passwordChangedAt"`;
 const INVALID_LOGIN = 'Invalid Login Id or Password';
 const INVALID_OTP = () => AppError.badRequest('Invalid or expired OTP', { otp: 'Invalid or expired OTP' });
 // Compared against when the login id is unknown, so timing does not leak account existence.
@@ -113,7 +113,7 @@ export async function signup({ loginId, name, email, password, otp }) {
   return { user: rows[0], pending: true, message: STATUS_MESSAGES.pending };
 }
 
-export async function login({ loginId, password }) {
+export async function login({ loginId, password }, meta = {}) {
   const identifier = loginId.trim();
   const { rows } = await query(
     `SELECT ${PUBLIC_COLUMNS}, password_hash FROM users WHERE login_id = $1 OR lower(email) = $2 OR lower(login_id) = $2`,
@@ -125,7 +125,8 @@ export async function login({ loginId, password }) {
   // Only revealed after a correct password, so it does not help account guessing.
   if (user.status !== 'active') throw AppError.forbidden(STATUS_MESSAGES[user.status]);
   delete user.password_hash;
-  return { user: withPermissions(user), token: signToken(user) };
+  const sessionId = await createSession(user.id, meta);
+  return { user: withPermissions(user), token: signToken(user, sessionId) };
 }
 
 export async function requestPasswordReset({ email }) {
@@ -185,10 +186,12 @@ export async function resetPassword({ email, otp, password }) {
       return 'invalid';
     }
     await db.query('UPDATE password_reset_otps SET used_at = now() WHERE user_id = $1 AND used_at IS NULL', [record.user_id]);
-    await db.query('UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2', [
+    await db.query('UPDATE users SET password_hash = $1, password_changed_at = now(), updated_at = now() WHERE id = $2', [
       await bcrypt.hash(password, 12),
       record.user_id,
     ]);
+    // A reset means the old password may be compromised: sign out every device.
+    await revokeSessions(db, record.user_id);
     return 'ok';
   });
   if (outcome === 'invalid') throw INVALID_OTP();
@@ -200,11 +203,107 @@ export async function getProfile(userId) {
   return withPermissions(rows[0]);
 }
 
-export async function updateProfile(userId, { name, email }) {
+export async function updateProfile(userId, { name, email, phone, department }) {
   const { rows } = await query(
-    `UPDATE users SET name = $1, email = $2, updated_at = now() WHERE id = $3 RETURNING ${PUBLIC_COLUMNS}`,
-    [name, email, userId],
+    `UPDATE users SET name = $1, email = $2, phone = $3, department = $4, updated_at = now()
+      WHERE id = $5 RETURNING ${PUBLIC_COLUMNS}`,
+    [name, email, phone || null, department || null, userId],
   );
   await publish({ query }, 'users', { id: userId, action: 'updated' }, { id: userId, name });
   return withPermissions(rows[0]);
+}
+
+// ------------------------------------------------------------------ password & sessions
+
+/**
+ * Revoke a user's sessions (optionally keeping one) and tell their open tabs.
+ * Runs on `db` so it can join the caller's transaction.
+ */
+export async function revokeSessions(db, userId, { keepSessionId = null, onlySessionId = null } = {}) {
+  const { rows } = await db.query(
+    `UPDATE user_sessions SET revoked_at = now()
+      WHERE user_id = $1 AND revoked_at IS NULL
+        AND ($2::bigint IS NULL OR id <> $2) AND ($3::bigint IS NULL OR id = $3)
+      RETURNING id`,
+    [userId, keepSessionId, onlySessionId],
+  );
+  for (const { id } of rows) await publish(db, 'sessions', { id: Number(id), userId });
+  return rows.length;
+}
+
+/** Change password from the profile page: requires the current password; signs out other devices. */
+export async function changePassword(user, { currentPassword, password }) {
+  const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+  if (!rows[0] || !(await bcrypt.compare(currentPassword, rows[0].password_hash))) {
+    throw AppError.badRequest('Current password is incorrect', { currentPassword: 'Current password is incorrect' });
+  }
+  if (await bcrypt.compare(password, rows[0].password_hash)) {
+    throw AppError.badRequest('Choose a password you have not used here', { password: 'New password must be different from the current one' });
+  }
+  return withTransaction(async (db) => {
+    await db.query('UPDATE users SET password_hash = $1, password_changed_at = now(), updated_at = now() WHERE id = $2', [
+      await hashPassword(password), user.id,
+    ]);
+    const signedOut = await revokeSessions(db, user.id, { keepSessionId: user.sessionId });
+    return { signedOutSessions: signedOut };
+  });
+}
+
+export async function listSessions(user) {
+  const { rows } = await query(
+    `SELECT id, user_agent AS "userAgent", ip_address AS "ip", created_at AS "createdAt", last_seen_at AS "lastSeenAt"
+       FROM user_sessions
+      WHERE user_id = $1 AND revoked_at IS NULL AND created_at > now() - $2::interval
+      ORDER BY last_seen_at DESC LIMIT 20`,
+    [user.id, env.JWT_EXPIRES_IN.replace(/^(\d+)h$/, '$1 hours').replace(/^(\d+)d$/, '$1 days')],
+  );
+  return rows.map((r) => ({ ...r, id: Number(r.id), current: Number(r.id) === user.sessionId }));
+}
+
+export async function revokeSession(user, sessionId) {
+  if (sessionId === user.sessionId) throw AppError.badRequest('Use "Sign out" to end the session you are using');
+  const n = await revokeSessions({ query }, user.id, { onlySessionId: sessionId });
+  if (!n) throw AppError.notFound('Session');
+}
+
+export const revokeOtherSessions = (user) => revokeSessions({ query }, user.id, { keepSessionId: user.sessionId });
+
+// ------------------------------------------------------------------ preferences
+
+export const DEFAULT_PREFERENCES = {
+  defaultWarehouseId: null,
+  landingPage: '/',
+  dateFormat: 'DD/MM/YYYY',
+  numberFormat: 'standard',
+  notifications: { lowStock: true, receipts: true, deliveries: true, adjustments: true, dailyDigest: false },
+};
+
+/** Stored prefs merged over defaults, so new settings get sensible values for existing users. */
+export async function getPreferences(userId) {
+  const { rows } = await query('SELECT prefs FROM user_preferences WHERE user_id = $1', [userId]);
+  const saved = rows[0]?.prefs ?? {};
+  return {
+    ...DEFAULT_PREFERENCES,
+    ...saved,
+    notifications: { ...DEFAULT_PREFERENCES.notifications, ...(saved.notifications ?? {}) },
+  };
+}
+
+export async function updatePreferences(userId, patch) {
+  if (patch.defaultWarehouseId) {
+    const { rowCount } = await query('SELECT 1 FROM warehouses WHERE id = $1 AND is_active', [patch.defaultWarehouseId]);
+    if (!rowCount) throw AppError.badRequest('Unknown warehouse', { defaultWarehouseId: 'Choose an existing warehouse' });
+  }
+  const current = await getPreferences(userId);
+  const next = {
+    ...current,
+    ...patch,
+    notifications: { ...current.notifications, ...(patch.notifications ?? {}) },
+  };
+  await query(
+    `INSERT INTO user_preferences (user_id, prefs) VALUES ($1, $2)
+     ON CONFLICT (user_id) DO UPDATE SET prefs = EXCLUDED.prefs, updated_at = now()`,
+    [userId, next],
+  );
+  return next;
 }

@@ -38,6 +38,13 @@ router.post('/:id/confirm', validate({ params: idParam }), authorize('process'),
   res.json(await service.confirmOperation(req.valid.params.id, req.user))));
 router.post('/:id/validate', validate({ params: idParam }), authorize('process'), asyncHandler(async (req, res) =>
   res.json(await service.validateOperation(req.valid.params.id, req.user))));
+// Delivery picking (warehouse staff): pick quantities -> pack -> validate.
+router.post('/:id/pick', validate({ params: idParam, body: s.pickSchema }), authorize('process'), asyncHandler(async (req, res) =>
+  res.json(await service.pickDelivery(req.valid.params.id, req.valid.body, req.user))));
+router.post('/:id/pack', validate({ params: idParam }), authorize('process'), asyncHandler(async (req, res) =>
+  res.json(await service.packDelivery(req.valid.params.id, req.user))));
+router.post('/:id/check-availability', validate({ params: idParam }), authorize('process'), asyncHandler(async (req, res) =>
+  res.json(await service.checkAvailability(req.valid.params.id, req.user))));
 router.post('/:id/cancel', validate({ params: idParam }), authorize('manage'), asyncHandler(async (req, res) =>
   res.json(await service.cancelOperation(req.valid.params.id, req.user))));
 

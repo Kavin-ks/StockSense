@@ -2,9 +2,10 @@ import { query, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../utils/AppError.js';
 import { PUBLIC_COLUMNS, assertIdentityAvailable, hashPassword } from '../auth/auth.service.js';
 import { publish } from '../realtime/realtime.bus.js';
+import { revokeSessions } from '../auth/auth.service.js';
 
 export async function listUsers({ search, role, status, page, pageSize }) {
-  const where = [];
+  const where = [`status <> 'deleted'`]; // deleted employees are gone from the team list
   const params = [];
   const add = (sql, v) => { params.push(v); where.push(sql.replaceAll('?', `$${params.length}`)); };
   if (search) add('(name ILIKE ? OR login_id ILIKE ? OR email ILIKE ?)', `%${search}%`);
@@ -103,7 +104,49 @@ export async function updateUser(id, { role, status }, actor) {
       `UPDATE users SET role = $1, status = $2, updated_at = now() WHERE id = $3 RETURNING ${PUBLIC_COLUMNS}`,
       [nextRole, nextStatus, id],
     );
+    if (nextStatus === 'deactivated') await revokeSessions(db, id);
     await publish(db, 'users', { id, action: 'updated', role: nextRole, status: nextStatus }, actor);
     return updated[0];
+  });
+}
+
+/**
+ * Delete an employee.
+ *  - A pending sign-up has never acted: the row is removed (same as rejecting it).
+ *  - Anyone else is anonymised instead of hard-deleted: login ID, email, phone, photo and password
+ *    are wiped (freeing the login ID and email), sessions end, but the row and the name stay so
+ *    documents and ledger entries they created keep an accurate "who".
+ * Same guards as role changes: not yourself, and never the last active manager.
+ */
+export async function deleteUser(id, actor) {
+  if (id === actor.id) throw AppError.badRequest('You cannot delete your own account. Ask another manager.');
+  return withTransaction(async (db) => {
+    const { rows: managers } = await db.query(
+      `SELECT id FROM users WHERE role = 'manager' AND status = 'active' ORDER BY id FOR UPDATE`,
+    );
+    const { rows } = await db.query('SELECT id, name, role, status FROM users WHERE id = $1 FOR UPDATE', [id]);
+    const target = rows[0];
+    if (!target || target.status === 'deleted') throw AppError.notFound('User');
+
+    if (target.status === 'pending') {
+      await db.query('DELETE FROM users WHERE id = $1', [id]);
+    } else {
+      if (target.role === 'manager' && target.status === 'active' && managers.length <= 1) {
+        throw AppError.conflict('StockSense needs at least one active manager');
+      }
+      await db.query(
+        `UPDATE users
+            SET status = 'deleted', deleted_at = now(), updated_at = now(),
+                login_id = 'del_' || lpad(id::text, 8, '0'),
+                email = 'deleted-' || id || '@deleted.invalid',
+                password_hash = '!', phone = NULL, department = NULL, avatar_url = NULL
+          WHERE id = $1`,
+        [id],
+      );
+      await db.query('DELETE FROM user_preferences WHERE user_id = $1', [id]);
+      await revokeSessions(db, id);
+    }
+    await publish(db, 'users', { id, action: 'deleted', status: 'deleted', name: target.name }, actor);
+    return { id, name: target.name };
   });
 }

@@ -12,9 +12,16 @@ router.post('/token', requireAuth, (req, res) => res.json({ token: signStreamTok
 
 /** Who may see an event. User-admin events only go to managers and to the affected user. */
 function visibleTo(user, event) {
+  if (event.topic === 'sessions') return false; // handled below, never forwarded
   if (event.topic !== 'users') return true;
   return user.role === 'manager' || event.id === user.id;
 }
+
+const REVOKE_REASONS = {
+  deactivated: 'Your account was deactivated by a manager.',
+  deleted: 'Your account was removed by a manager.',
+  session: 'You were signed out from another device.',
+};
 
 // Step 2: Server-Sent Events stream.
 router.get('/stream', asyncHandler(async (req, res) => {
@@ -32,11 +39,13 @@ router.get('/stream', asyncHandler(async (req, res) => {
   res.write(`event: ready\ndata: {}\n\n`);
 
   const send = (event) => {
+    const revoke = (reason) => {
+      res.write(`event: revoked\ndata: ${JSON.stringify({ message: REVOKE_REASONS[reason] })}\n\n`);
+      return res.end();
+    };
+    if (event.topic === 'sessions' && event.id === user.sessionId) return revoke('session');
     if (event.topic === 'users' && event.id === user.id) {
-      if (event.status === 'deactivated') {
-        res.write(`event: revoked\ndata: {}\n\n`);
-        return res.end();
-      }
+      if (event.status === 'deactivated' || event.status === 'deleted') return revoke(event.status);
       if (event.role) user.role = event.role; // keep the visibility check current
     }
     if (visibleTo(user, event)) res.write(`data: ${JSON.stringify(event)}\n\n`);

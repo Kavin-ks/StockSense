@@ -16,6 +16,8 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import userRoutes from './modules/users/users.routes.js';
 import realtimeRoutes from './modules/realtime/realtime.routes.js';
 import exportRoutes from './modules/export/export.routes.js';
+import reportRoutes from './modules/reports/reports.routes.js';
+import importRoutes from './modules/import/import.routes.js';
 import { avatarUpload } from './middleware/upload.js';
 import { asyncHandler } from './utils/asyncHandler.js';
 import { pool } from './db/pool.js';
@@ -49,6 +51,8 @@ export function createApp() {
   api.use('/moves', moveRoutes);
   api.use('/users', userRoutes);
   api.use('/export', exportRoutes);
+  api.use('/import', importRoutes);
+  api.use('/reports', reportRoutes);
 
   // Avatar upload
   api.post('/auth/me/avatar', avatarUpload.single('avatar'), asyncHandler(async (req, res) => {
