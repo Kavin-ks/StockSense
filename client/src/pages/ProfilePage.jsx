@@ -6,13 +6,7 @@ import {
   Calendar,
   CheckCircle2,
   Copy,
-  Download,
   LogOut,
-  Palette,
-  Sun,
-  Moon,
-  Laptop,
-  Sliders,
   Bell,
   Warehouse,
   ArrowDownToLine,
@@ -22,10 +16,10 @@ import {
   AlertTriangle,
   Lock,
   Save,
-  Check
+  Check,
+  Laptop
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useTheme } from '../context/ThemeContext.jsx';
 import { useForm } from '../hooks/useForm.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { Alert, Button, Input, Select } from '../components/ui.jsx';
@@ -34,7 +28,6 @@ import { warehouseApi } from '../api/endpoints.js';
 
 export default function ProfilePage() {
   const { user, updateProfile, logout } = useAuth();
-  const { theme, resolvedTheme, setTheme } = useTheme();
   const notify = useToast();
   const [activeTab, setActiveTab] = useState('general');
   const [warehouses, setWarehouses] = useState([]);
@@ -147,24 +140,6 @@ export default function ProfilePage() {
     }, 600);
   };
 
-  const exportConfig = () => {
-    const data = {
-      profile: { name: user?.name, email: user?.email, loginId: user?.loginId, role: user?.role },
-      theme,
-      resolvedTheme,
-      preferences: prefs,
-      notifications: notifs,
-      exportedAt: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `stocksense-profile-${user?.loginId || 'user'}.json`;
-    a.click();
-    notify('Profile configuration exported');
-  };
-
   return (
     <div className="profile-container">
       {/* Hero Banner & Profile Header */}
@@ -208,9 +183,6 @@ export default function ProfilePage() {
           </div>
 
           <div className="profile-header-actions">
-            <Button variant="ghost" onClick={exportConfig}>
-              <Download size={15} /> Export Config
-            </Button>
             <Button variant="danger-ghost" onClick={logout}>
               <LogOut size={15} /> Sign out
             </Button>
@@ -225,13 +197,6 @@ export default function ProfilePage() {
             onClick={() => setActiveTab('general')}
           >
             <User size={16} /> Personal Details
-          </button>
-          <button
-            type="button"
-            className={`profile-tab-btn ${activeTab === 'appearance' ? 'active' : ''}`}
-            onClick={() => setActiveTab('appearance')}
-          >
-            <Palette size={16} /> Theme & Display
           </button>
           <button
             type="button"
@@ -304,88 +269,6 @@ export default function ProfilePage() {
               </Button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* Tab 2: Theme & Appearance (Synchronized with App ThemeContext) */}
-      {activeTab === 'appearance' && (
-        <div className="profile-section-card">
-          <div className="section-head">
-            <h3>Appearance & Interface Theme</h3>
-            <p>Configure interface styling, contrast, and table density.</p>
-          </div>
-
-          <div className="theme-options-grid">
-            <div
-              className={`theme-card-option ${theme === 'light' ? 'selected' : ''}`}
-              onClick={() => setTheme('light')}
-            >
-              <div className="theme-card-preview" style={{ background: '#f8fafc', padding: '6px', gap: '4px' }}>
-                <div style={{ width: '25%', background: '#fff', borderRadius: '4px', border: '1px solid #e2e8f0' }} />
-                <div style={{ flex: 1, background: '#fff', borderRadius: '4px', border: '1px solid #e2e8f0' }} />
-              </div>
-              <div>
-                <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sun size={16} color="#f59e0b" /> Light Mode
-                </strong>
-                <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>High contrast, crisp daytime layout</p>
-              </div>
-            </div>
-
-            <div
-              className={`theme-card-option ${theme === 'dark' ? 'selected' : ''}`}
-              onClick={() => setTheme('dark')}
-            >
-              <div className="theme-card-preview" style={{ background: '#0b0e17', padding: '6px', gap: '4px' }}>
-                <div style={{ width: '25%', background: '#131726', borderRadius: '4px', border: '1px solid #262c42' }} />
-                <div style={{ flex: 1, background: '#131726', borderRadius: '4px', border: '1px solid #262c42' }} />
-              </div>
-              <div>
-                <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Moon size={16} color="#818cf8" /> Dark Mode
-                </strong>
-                <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>Deep slate, reduces eye fatigue in low light</p>
-              </div>
-            </div>
-
-            <div
-              className={`theme-card-option ${theme === 'system' ? 'selected' : ''}`}
-              onClick={() => setTheme('system')}
-            >
-              <div className="theme-card-preview" style={{ background: 'linear-gradient(90deg, #f8fafc 50%, #0b0e17 50%)', padding: '6px' }} />
-              <div>
-                <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Laptop size={16} /> System Default ({resolvedTheme})
-                </strong>
-                <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>Automatically mirrors OS settings</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="switch-row" style={{ marginTop: '8px' }}>
-            <div className="switch-label-group">
-              <span className="switch-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sliders size={16} /> Table Layout Density
-              </span>
-              <span className="switch-desc">Compact rows display more inventory quants per screen.</span>
-            </div>
-            <div className="segmented">
-              <button
-                type="button"
-                className={prefs.density === 'comfortable' ? 'active' : ''}
-                onClick={() => handlePrefChange('density', 'comfortable')}
-              >
-                Spacious
-              </button>
-              <button
-                type="button"
-                className={prefs.density === 'compact' ? 'active' : ''}
-                onClick={() => handlePrefChange('density', 'compact')}
-              >
-                Compact
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
