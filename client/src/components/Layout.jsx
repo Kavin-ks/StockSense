@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { AlertBell } from './AlertBell.jsx';
+import { ThemeToggle } from './ThemeToggle.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
@@ -55,6 +56,7 @@ export function Layout() {
         <header className="topbar">
           <button className="icon-btn menu-btn" aria-label="Toggle menu" onClick={() => setOpen((o) => !o)}>☰</button>
           <div className="spacer" />
+          <ThemeToggle />
           <AlertBell />
         </header>
         <main className="content"><Outlet /></main>

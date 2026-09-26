@@ -102,3 +102,20 @@ export async function defaultLocationId(warehouseId, db = { query }) {
   if (!rows[0]) throw AppError.badRequest('This warehouse has no locations yet');
   return rows[0].id;
 }
+
+/**
+ * Validate a warehouse/location filter pair used by list and dashboard queries.
+ * A location from a different warehouse is a user error. The location does NOT imply a warehouse
+ * filter: a cross-warehouse transfer belongs to one warehouse but touches locations in another.
+ */
+export async function resolveScope({ warehouseId, locationId }) {
+  if (!locationId) return { warehouseId: warehouseId ?? null, locationId: null };
+  const { rows } = await query(`SELECT warehouse_id FROM locations WHERE id = $1 AND type = 'internal'`, [locationId]);
+  if (!rows[0]) throw AppError.badRequest('Invalid location filter', { locationId: 'Location not found' });
+  if (warehouseId && rows[0].warehouse_id !== warehouseId) {
+    throw AppError.badRequest('Location does not belong to the selected warehouse', {
+      locationId: 'Location does not belong to the selected warehouse',
+    });
+  }
+  return { warehouseId: warehouseId ?? null, locationId };
+}

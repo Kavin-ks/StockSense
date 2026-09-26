@@ -8,7 +8,7 @@ import * as service from './dashboard.service.js';
 
 const router = Router();
 
-router.get('/summary', validate({ query: z.object({ warehouseId: optionalId, categoryId: optionalId }) }),
+router.get('/summary', validate({ query: z.object({ warehouseId: optionalId, locationId: optionalId, categoryId: optionalId }) }),
   asyncHandler(async (req, res) => res.json(await service.getSummary(req.valid.query))));
 
 router.get('/alerts', asyncHandler(async (_req, res) => res.json(await service.getLowStockAlerts())));

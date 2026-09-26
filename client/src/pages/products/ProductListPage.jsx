@@ -2,9 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import { productApi } from '../../api/endpoints.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { useQueryState } from '../../hooks/useQueryState.js';
-import { toOptions, useCategories, useWarehouses } from '../../hooks/useLookups.js';
+import { FilterBar } from '../../components/FilterBar.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
-import { Button, ErrorState, PageHeader, Pagination, SearchInput, Select, Spinner } from '../../components/ui.jsx';
+import { Button, ErrorState, PageHeader, Pagination, Select, Spinner } from '../../components/ui.jsx';
 import { fmtMoney, fmtQty } from '../../utils.js';
 
 const STOCK_LABEL = { in: 'In stock', low: 'Low stock', out: 'Out of stock' };
@@ -16,9 +16,7 @@ const STOCK_LABEL = { in: 'In stock', low: 'Low stock', out: 'Out of stock' };
 export default function ProductListPage({ mode = 'catalog' }) {
   const navigate = useNavigate();
   const [q, setQ] = useQueryState({ page: '1' });
-  const { data: categories } = useCategories();
-  const { data: warehouses } = useWarehouses();
-  const params = { search: q.search, categoryId: q.categoryId, warehouseId: q.warehouseId, stockStatus: q.stockStatus, page: q.page };
+  const params = { search: q.search, categoryId: q.categoryId, warehouseId: q.warehouseId, locationId: q.locationId, stockStatus: q.stockStatus, page: q.page };
   const { data, error, loading, reload } = useFetch(() => productApi.list(params), [JSON.stringify(params)]);
 
   const stockCell = (p) => <span className={`stock-pill stock-${p.stockStatus}`}>{STOCK_LABEL[p.stockStatus]}</span>;
@@ -42,16 +40,13 @@ export default function ProductListPage({ mode = 'catalog' }) {
 
   return (
     <>
-      <PageHeader title={mode === 'stock' ? 'Stock' : 'Products'} subtitle={mode === 'stock' ? 'Current stock across warehouses' : undefined}>
+      <PageHeader title={mode === 'stock' ? 'Stock' : 'Products'} subtitle={q.locationId || q.warehouseId ? 'Quantities shown for the selected warehouse / location' : mode === 'stock' ? 'Current stock across all warehouses' : undefined}>
         <Button onClick={() => navigate('/products/new')}>New product</Button>
       </PageHeader>
-      <div className="toolbar">
-        <SearchInput value={q.search} onChange={(search) => setQ({ search })} placeholder="Search by name or SKU" />
-        <Select placeholder="All categories" value={q.categoryId ?? ''} options={toOptions(categories)} onChange={(e) => setQ({ categoryId: e.target.value })} aria-label="Category" />
-        <Select placeholder="All warehouses" value={q.warehouseId ?? ''} options={toOptions(warehouses)} onChange={(e) => setQ({ warehouseId: e.target.value })} aria-label="Warehouse" />
+      <FilterBar filters={q} onChange={setQ} fields={['search', 'warehouseId', 'locationId', 'categoryId']} searchPlaceholder="Search by name or SKU">
         <Select placeholder="Any stock level" value={q.stockStatus ?? ''} onChange={(e) => setQ({ stockStatus: e.target.value })} aria-label="Stock level"
           options={Object.entries(STOCK_LABEL).map(([value, label]) => ({ value, label }))} />
-      </div>
+      </FilterBar>
       {error && <ErrorState error={error} onRetry={reload} />}
       {loading && !data ? <Spinner /> : data && (
         <>

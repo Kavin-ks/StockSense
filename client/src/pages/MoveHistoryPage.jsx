@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom';
 import { moveApi } from '../api/endpoints.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { useQueryState } from '../hooks/useQueryState.js';
-import { toOptions, useWarehouses } from '../hooks/useLookups.js';
+import { FilterBar } from '../components/FilterBar.jsx';
 import { DataTable } from '../components/DataTable.jsx';
-import { ErrorState, Input, PageHeader, Pagination, SearchInput, Select, Spinner } from '../components/ui.jsx';
+import { ErrorState, Input, PageHeader, Pagination, Select, Spinner } from '../components/ui.jsx';
 import { fmtDate, fmtQty } from '../utils.js';
 
 const DIRECTIONS = [{ value: 'in', label: 'Incoming' }, { value: 'out', label: 'Outgoing' }, { value: 'internal', label: 'Internal' }];
@@ -13,8 +13,7 @@ const OP_PATH = { IN: 'receipts', OUT: 'deliveries', INT: 'transfers', ADJ: 'adj
 /** The stock ledger: one row per product per move. In = green, out = red. */
 export default function MoveHistoryPage() {
   const [q, setQ] = useQueryState({ page: '1' });
-  const { data: warehouses } = useWarehouses();
-  const params = { search: q.search, direction: q.direction, warehouseId: q.warehouseId, from: q.from, to: q.to, page: q.page };
+  const params = { search: q.search, type: q.type, direction: q.direction, warehouseId: q.warehouseId, locationId: q.locationId, categoryId: q.categoryId, from: q.from, to: q.to, page: q.page };
   const { data, error, loading, reload } = useFetch(() => moveApi.list(params), [JSON.stringify(params)]);
 
   const opLink = (m) => {
@@ -25,13 +24,12 @@ export default function MoveHistoryPage() {
   return (
     <>
       <PageHeader title="Move History" subtitle="Every stock movement, as recorded in the ledger" />
-      <div className="toolbar">
-        <SearchInput value={q.search} onChange={(search) => setQ({ search })} placeholder="Search reference, contact or product" />
+      <FilterBar filters={q} onChange={setQ} fields={['search', 'type', 'warehouseId', 'locationId', 'categoryId']}
+        searchPlaceholder="Search reference, contact or product">
         <Select placeholder="All directions" value={q.direction ?? ''} options={DIRECTIONS} onChange={(e) => setQ({ direction: e.target.value })} aria-label="Direction" />
-        <Select placeholder="All warehouses" value={q.warehouseId ?? ''} options={toOptions(warehouses)} onChange={(e) => setQ({ warehouseId: e.target.value })} aria-label="Warehouse" />
         <Input type="date" aria-label="From date" value={q.from ?? ''} onChange={(e) => setQ({ from: e.target.value })} />
         <Input type="date" aria-label="To date" value={q.to ?? ''} onChange={(e) => setQ({ to: e.target.value })} />
-      </div>
+      </FilterBar>
       {error && <ErrorState error={error} onRetry={reload} />}
       {loading && !data ? <Spinner /> : data && (
         <>
