@@ -77,6 +77,7 @@ export default function SignupPage() {
         confirmPassword: form.values.confirmPassword,
       });
       setInfo(`New verification code sent to ${form.values.email.trim()}`);
+      form.set('otp', '');
     } catch (err) {
       setInfo(err.message || 'Failed to resend code');
     }

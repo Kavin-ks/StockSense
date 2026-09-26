@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { validate } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/auth.js';
+import { AppError } from '../../utils/AppError.js';
 import * as schemas from './auth.schemas.js';
 import * as service from './auth.service.js';
 

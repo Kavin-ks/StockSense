@@ -40,7 +40,12 @@ async function request(method, path, { body, params } = {}) {
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
     if (res.status === 401 && token) onUnauthorized();
-    throw new ApiError(res.status, data?.error?.message ?? 'Request failed', data?.error?.fields ?? {});
+    const fallbackMessage = res.status === 502 || res.status === 503 || res.status === 504
+      ? 'Backend server is not responding. Please make sure the server is running.'
+      : res.status === 429
+      ? 'Too many requests. Please wait a few moments and try again.'
+      : 'Request failed. Please try again.';
+    throw new ApiError(res.status, data?.error?.message ?? data?.message ?? fallbackMessage, data?.error?.fields ?? {});
   }
   return data;
 }
