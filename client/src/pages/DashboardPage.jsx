@@ -1,82 +1,149 @@
-import { Link } from 'react-router-dom';
-import { dashboardApi } from '../api/endpoints.js';
+import { Link, useNavigate } from 'react-router-dom';
+import { dashboardApi, operationApi } from '../api/endpoints.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { useQueryState } from '../hooks/useQueryState.js';
-import { toOptions, useCategories, useWarehouses } from '../hooks/useLookups.js';
-import { ErrorState, PageHeader, Select, Spinner } from '../components/ui.jsx';
-import { fmtQty } from '../utils.js';
+import { FilterBar, STATUS_OPTIONS, TYPE_OPTIONS } from '../components/FilterBar.jsx';
+import { DataTable } from '../components/DataTable.jsx';
+import { ErrorState, PageHeader, Spinner, StatusBadge } from '../components/ui.jsx';
+import { OPERATION_META, fmtDate, fmtQty } from '../utils.js';
 
-function Kpi({ label, value, tone, to }) {
+const SCOPE_KEYS = ['warehouseId', 'locationId', 'categoryId'];
+
+function Kpi({ label, value, tone, to, dimmed }) {
   const body = (<><span className="kpi-value">{value}</span><span className="kpi-label">{label}</span></>);
-  return to ? <Link to={to} className={`kpi kpi-${tone ?? 'default'}`}>{body}</Link> : <div className={`kpi kpi-${tone ?? 'default'}`}>{body}</div>;
+  const cls = `kpi kpi-${tone ?? 'default'} ${dimmed ? 'dimmed' : ''}`;
+  return to ? <Link to={to} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
 }
 
-function OperationCard({ title, stats, verb, path }) {
+function OperationCard({ title, stats, verb, path, query, dimmed }) {
+  const q = query ? `&${query}` : '';
   return (
-    <div className="card op-card">
+    <div className={`card op-card ${dimmed ? 'dimmed' : ''}`}>
       <div className="op-card-head">
         <h2>{title}</h2>
-        <Link className="btn btn-primary" to={path}>{stats.pending} to {verb}</Link>
+        <Link className="btn btn-primary" to={`${path}?${query}`}>{stats.pending} to {verb}</Link>
       </div>
       <div className="op-card-stats">
-        <Link to={`${path}?late=true`} className={stats.late ? 'text-danger' : 'muted'}>{stats.late} Late</Link>
-        {'waiting' in stats && stats.waiting > 0 && <Link to={`${path}?status=waiting`} className="text-warn">{stats.waiting} Waiting</Link>}
+        <Link to={`${path}?late=true${q}`} className={stats.late ? 'text-danger' : 'muted'}>{stats.late} Late</Link>
+        {stats.waiting > 0 && <Link to={`${path}?status=waiting${q}`} className="text-warn">{stats.waiting} Waiting</Link>}
         <span className="muted">{stats.upcoming} Upcoming</span>
       </div>
     </div>
   );
 }
 
+/** Type x status counts; clicking a cell applies both filters. */
+function StatusBreakdown({ breakdown, filters, onPick }) {
+  return (
+    <div className="table-wrap">
+      <table className="table breakdown">
+        <thead>
+          <tr><th>Document type</th>{STATUS_OPTIONS.map((s) => <th key={s.value} style={{ textAlign: 'right' }}>{s.label}</th>)}</tr>
+        </thead>
+        <tbody>
+          {TYPE_OPTIONS.map((t) => (
+            <tr key={t.value} className={filters.type && filters.type !== t.value ? 'dimmed' : ''}>
+              <td><strong>{t.label}</strong></td>
+              {STATUS_OPTIONS.map((s) => {
+                const n = breakdown[t.value][s.value];
+                const selected = filters.type === t.value && filters.status === s.value;
+                return (
+                  <td key={s.value} style={{ textAlign: 'right' }} className={filters.status && filters.status !== s.value ? 'dimmed' : ''}>
+                    <button type="button" className={`cell-btn ${selected ? 'selected' : ''}`} disabled={!n}
+                      aria-label={`${n} ${t.label} ${s.label}`}
+                      onClick={() => onPick(selected ? { type: '', status: '' } : { type: t.value, status: s.value })}>{n}</button>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
-  const [filters, setFilters] = useQueryState({ warehouseId: '', categoryId: '' });
-  const { data, error, loading, reload } = useFetch(() => dashboardApi.summary(filters), [filters.warehouseId, filters.categoryId]);
+  const navigate = useNavigate();
+  const [filters, setFilters] = useQueryState({});
+  const scope = Object.fromEntries(SCOPE_KEYS.map((k) => [k, filters[k]]));
+  const scopeKey = JSON.stringify(scope);
+  // Carry the warehouse/location/category scope into the list pages the dashboard links to.
+  const scopeQuery = new URLSearchParams(Object.entries(scope).filter(([, v]) => v)).toString();
+
+  const summary = useFetch(() => dashboardApi.summary(scope), [scopeKey]);
+  const opsParams = { ...scope, type: filters.type, status: filters.status, pageSize: 8 };
+  const ops = useFetch(() => operationApi.list(opsParams), [JSON.stringify(opsParams)]);
   const { data: alerts } = useFetch(() => dashboardApi.alerts(), []);
-  const { data: warehouses } = useWarehouses();
-  const { data: categories } = useCategories();
+
+  const data = summary.data;
+  const dimType = (type) => Boolean(filters.type) && filters.type !== type;
+  const listPath = filters.type ? OPERATION_META[filters.type].path : null;
+  const viewAllQuery = new URLSearchParams(Object.entries({ ...scope, status: filters.status }).filter(([, v]) => v)).toString();
 
   return (
     <>
-      <PageHeader title="Inventory Dashboard" subtitle="Snapshot of today's inventory operations">
-        <Select placeholder="All warehouses" options={toOptions(warehouses)} value={filters.warehouseId}
-          onChange={(e) => setFilters({ warehouseId: e.target.value })} aria-label="Warehouse" />
-        <Select placeholder="All categories" options={toOptions(categories)} value={filters.categoryId}
-          onChange={(e) => setFilters({ categoryId: e.target.value })} aria-label="Category" />
-      </PageHeader>
+      <PageHeader title="Inventory Dashboard" subtitle="Snapshot of inventory operations" />
+      <FilterBar filters={filters} onChange={setFilters} fields={['type', 'status', 'warehouseId', 'locationId', 'categoryId']} />
 
-      {error && <ErrorState error={error} onRetry={reload} />}
-      {loading && !data && <Spinner />}
-      {data && (
+      {summary.error && <ErrorState error={summary.error} onRetry={summary.reload} />}
+      {summary.loading && !data && <Spinner />}
+      {data && !summary.error && (
         <>
           <div className="kpi-grid">
-            <Kpi label="Products in stock" value={data.productsInStock} to="/stock?stockStatus=in" />
-            <Kpi label="Low stock" value={data.lowStock} tone="warn" to="/stock?stockStatus=low" />
-            <Kpi label="Out of stock" value={data.outOfStock} tone="danger" to="/stock?stockStatus=out" />
-            <Kpi label="Pending receipts" value={data.receipts.pending} to="/operations/receipts" />
-            <Kpi label="Pending deliveries" value={data.deliveries.pending} to="/operations/deliveries" />
-            <Kpi label="Transfers scheduled" value={data.internal.pending} to="/operations/transfers" />
+            <Kpi label="Products in stock" value={data.productsInStock} to={`/stock?stockStatus=in&${scopeQuery}`} />
+            <Kpi label="Low stock" value={data.lowStock} tone="warn" to={`/stock?stockStatus=low&${scopeQuery}`} />
+            <Kpi label="Out of stock" value={data.outOfStock} tone="danger" to={`/stock?stockStatus=out&${scopeQuery}`} />
+            <Kpi label="Pending receipts" value={data.receipts.pending} to={`/operations/receipts?${scopeQuery}`} dimmed={dimType('receipt')} />
+            <Kpi label="Pending deliveries" value={data.deliveries.pending} to={`/operations/deliveries?${scopeQuery}`} dimmed={dimType('delivery')} />
+            <Kpi label="Transfers scheduled" value={data.internal.pending} to={`/operations/transfers?${scopeQuery}`} dimmed={dimType('internal')} />
           </div>
 
           <div className="grid-2">
-            <OperationCard title="Receipt" stats={data.receipts} verb="receive" path="/operations/receipts" />
-            <OperationCard title="Delivery" stats={data.deliveries} verb="deliver" path="/operations/deliveries" />
+            <OperationCard title="Receipt" stats={data.receipts} verb="receive" path="/operations/receipts" query={scopeQuery} dimmed={dimType('receipt')} />
+            <OperationCard title="Delivery" stats={data.deliveries} verb="deliver" path="/operations/deliveries" query={scopeQuery} dimmed={dimType('delivery')} />
           </div>
 
-          <div className="card">
-            <h2>Low stock alerts</h2>
-            {!alerts?.length ? <p className="muted">No products below their reordering minimum.</p> : (
-              <ul className="alert-list">
-                {alerts.map((a) => (
-                  <li key={`${a.id}-${a.warehouseName}`}>
-                    <Link to={`/products/${a.id}`}>[{a.sku}] {a.name}</Link>
-                    <span className="muted">{a.warehouseName}</span>
-                    <span className="text-danger">{fmtQty(a.onHand)} {a.uom} (min {fmtQty(a.minQty)})</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <section className="stack">
+            <h2>Operations by status</h2>
+            <StatusBreakdown breakdown={data.breakdown} filters={filters} onPick={setFilters} />
+          </section>
         </>
       )}
+
+      <section className="stack">
+        <div className="section-head">
+          <h2>{filters.type ? OPERATION_META[filters.type].label : 'Recent operations'}{filters.status && ` · ${filters.status}`}</h2>
+          {listPath && <Link to={`${listPath}?${viewAllQuery}`}>View all →</Link>}
+        </div>
+        {ops.error && !summary.error && <ErrorState error={ops.error} onRetry={ops.reload} />}
+        {ops.loading && !ops.data ? <Spinner /> : ops.data && !ops.error && (
+          <DataTable rows={ops.data.data} onRowClick={(o) => navigate(`${OPERATION_META[o.type].path}/${o.id}`)}
+            emptyTitle="No operations match these filters" emptyText="Try clearing a filter." columns={[
+              { key: 'reference', header: 'Reference', render: (o) => <strong>{o.reference}</strong> },
+              { key: 'type', header: 'Type', render: (o) => OPERATION_META[o.type].single },
+              { key: 'scheduledDate', header: 'Scheduled', render: (o) => <span className={o.isLate ? 'text-danger' : ''}>{fmtDate(o.scheduledDate)}{o.isLate && ' · Late'}</span> },
+              { key: 'contact', header: 'Contact', render: (o) => o.contact ?? '—' },
+              { key: 'route', header: 'From → To', render: (o) => `${o.sourceLocation} → ${o.destLocation}` },
+              { key: 'status', header: 'Status', render: (o) => <StatusBadge status={o.status} /> },
+            ]} />
+        )}
+      </section>
+
+      <div className="card">
+        <h2>Low stock alerts</h2>
+        {!alerts?.length ? <p className="muted">No products below their reordering minimum.</p> : (
+          <ul className="alert-list">
+            {alerts.map((a) => (
+              <li key={`${a.id}-${a.warehouseName}`}>
+                <Link to={`/products/${a.id}`}>[{a.sku}] {a.name}</Link>
+                <span className="muted">{a.warehouseName}</span>
+                <span className="text-danger">{fmtQty(a.onHand)} {a.uom} (min {fmtQty(a.minQty)})</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </>
   );
 }

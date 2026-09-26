@@ -1,29 +1,35 @@
 import { query, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../utils/AppError.js';
 import { moveStock, nextReference } from '../stock/stock.service.js';
-import { virtualLocationId } from '../warehouses/warehouses.service.js';
+import { resolveScope, virtualLocationId } from '../warehouses/warehouses.service.js';
 
 /*
- * Stock figures per product:
- *   onHand    = sum of quants in internal locations (optionally one warehouse)
- *   reserved  = qty on open (waiting/ready) delivery orders
+ * Stock figures per product, scoped by $1 = warehouse id and $2 = location id (both nullable):
+ *   onHand    = sum of quants in internal locations within the scope
+ *   reserved  = qty on open (waiting/ready) delivery orders leaving the scope
  *   freeToUse = onHand - reserved
  *   minQty    = reorder-rule minimum (sum over the warehouses in scope)
  */
-const stockCte = (whFilter) => `
+const STOCK_CTE = `
   WITH stock AS (
     SELECT q.product_id, sum(q.quantity) AS on_hand
       FROM stock_quants q JOIN locations l ON l.id = q.location_id
-     WHERE l.type = 'internal' ${whFilter ? 'AND l.warehouse_id = $1' : ''}
+     WHERE l.type = 'internal'
+       AND ($1::int IS NULL OR l.warehouse_id = $1)
+       AND ($2::int IS NULL OR l.id = $2)
      GROUP BY q.product_id),
   reserved AS (
     SELECT ol.product_id, sum(ol.quantity) AS qty
       FROM operation_lines ol JOIN operations o ON o.id = ol.operation_id
-     WHERE o.type = 'delivery' AND o.status IN ('waiting','ready') ${whFilter ? 'AND o.warehouse_id = $1' : ''}
+     WHERE o.type = 'delivery' AND o.status IN ('waiting','ready')
+       AND ($1::int IS NULL OR o.warehouse_id = $1 OR o.source_location_id IN (SELECT id FROM locations WHERE warehouse_id = $1))
+       AND ($2::int IS NULL OR o.source_location_id = $2)
      GROUP BY ol.product_id),
   rules AS (
     SELECT product_id, sum(min_qty) AS min_qty FROM reorder_rules
-     ${whFilter ? 'WHERE warehouse_id = $1' : ''} GROUP BY product_id)`;
+     WHERE ($1::int IS NULL OR warehouse_id = $1)
+       AND ($2::int IS NULL OR warehouse_id = (SELECT warehouse_id FROM locations WHERE id = $2))
+     GROUP BY product_id)`;
 
 const PRODUCT_COLS = `p.id, p.name, p.sku, p.uom, p.unit_cost AS "unitCost", p.category_id AS "categoryId",
   c.name AS "categoryName",
@@ -40,14 +46,15 @@ const PRODUCT_FROM = `FROM products p
   LEFT JOIN reserved r  ON r.product_id = p.id
   LEFT JOIN rules ru    ON ru.product_id = p.id`;
 
-export async function listProducts({ search, categoryId, warehouseId, stockStatus, page, pageSize }) {
-  const params = warehouseId ? [warehouseId] : [];
+export async function listProducts({ search, categoryId, warehouseId, locationId, stockStatus, page, pageSize }) {
+  const scope = await resolveScope({ warehouseId, locationId });
+  const params = [scope.warehouseId, scope.locationId];
   const where = ['p.is_active'];
   if (search) { params.push(`%${search}%`); where.push(`(p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length})`); }
   if (categoryId) { params.push(categoryId); where.push(`p.category_id = $${params.length}`); }
 
   // stockStatus is derived, so filter on the computed column via a subquery.
-  const inner = `${stockCte(!!warehouseId)} SELECT ${PRODUCT_COLS} ${PRODUCT_FROM} WHERE ${where.join(' AND ')}`;
+  const inner = `${STOCK_CTE} SELECT ${PRODUCT_COLS} ${PRODUCT_FROM} WHERE ${where.join(' AND ')}`;
   const statusFilter = stockStatus ? `WHERE x."stockStatus" = '${stockStatus}'` : ''; // enum-validated
 
   const [{ rows }, count] = await Promise.all([
@@ -59,7 +66,7 @@ export async function listProducts({ search, categoryId, warehouseId, stockStatu
 }
 
 export async function getProduct(id) {
-  const { rows } = await query(`${stockCte(false)} SELECT ${PRODUCT_COLS} ${PRODUCT_FROM} WHERE p.id = $1`, [id]);
+  const { rows } = await query(`${STOCK_CTE} SELECT ${PRODUCT_COLS} ${PRODUCT_FROM} WHERE p.id = $3`, [null, null, id]);
   if (!rows[0]) throw AppError.notFound('Product');
 
   const [locations, rules] = await Promise.all([
