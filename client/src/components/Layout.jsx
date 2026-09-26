@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -22,6 +22,35 @@ import {
 import { useAuth } from '../context/AuthContext.jsx';
 import { AlertBell } from './AlertBell.jsx';
 import { ThemeToggle } from './ThemeToggle.jsx';
+
+const MOBILE_NAV = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  {
+    label: 'Operations',
+    children: [
+      { to: '/operations/receipts', label: 'Receipts', icon: ArrowDownToLine },
+      { to: '/operations/deliveries', label: 'Deliveries', icon: Truck },
+      { to: '/operations/transfers', label: 'Internal Transfers', icon: ArrowLeftRight },
+      { to: '/operations/adjustments', label: 'Adjustments', icon: Scale },
+    ],
+  },
+  {
+    label: 'Products',
+    children: [
+      { to: '/products', label: 'Products', icon: Package, end: true },
+      { to: '/stock', label: 'Stock Quants', icon: Boxes },
+      { to: '/products/categories', label: 'Categories', icon: Tags },
+      { to: '/moves', label: 'Move History', icon: History },
+    ],
+  },
+  {
+    label: 'Settings',
+    children: [
+      { to: '/settings/warehouses', label: 'Warehouses', icon: Warehouse },
+      { to: '/settings/locations', label: 'Locations', icon: MapPin },
+    ],
+  },
+];
 
 export function Layout() {
   const { user, logout } = useAuth();
@@ -106,9 +135,9 @@ export function Layout() {
               type="button"
               className="top-mobile-toggle"
               aria-label="Toggle navigation menu"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              onClick={() => setMobileMenuOpen(true)}
             >
-              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+              <Menu size={22} />
             </button>
 
             <NavLink to="/" className="top-nav-brand">
@@ -489,163 +518,6 @@ export function Layout() {
           </div>
         </div>
 
-        {/* ========================================================
-            RESPONSIVE MOBILE / TABLET DRAWER
-        ======================================================== */}
-        {mobileMenuOpen && (
-          <div className="top-mobile-drawer">
-            <nav className="mobile-nav-content">
-              {/* Dashboard */}
-              <NavLink
-                to="/"
-                end
-                className={({ isActive }) =>
-                  `mobile-nav-link ${isActive ? 'active' : ''}`
-                }
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <LayoutDashboard size={18} />
-                <span>Dashboard</span>
-              </NavLink>
-
-              {/* Operations Group */}
-              <div className="mobile-nav-group">
-                <span className="mobile-group-title">Operations</span>
-                <NavLink
-                  to="/operations/receipts"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <ArrowDownToLine size={16} />
-                  <span>Receipts</span>
-                </NavLink>
-                <NavLink
-                  to="/operations/deliveries"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Truck size={16} />
-                  <span>Deliveries</span>
-                </NavLink>
-                <NavLink
-                  to="/operations/transfers"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <ArrowLeftRight size={16} />
-                  <span>Internal Transfers</span>
-                </NavLink>
-                <NavLink
-                  to="/operations/adjustments"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Scale size={16} />
-                  <span>Adjustments</span>
-                </NavLink>
-              </div>
-
-              {/* Products Group */}
-              <div className="mobile-nav-group">
-                <span className="mobile-group-title">Products & Inventory</span>
-                <NavLink
-                  to="/products"
-                  end
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Package size={16} />
-                  <span>Products</span>
-                </NavLink>
-                <NavLink
-                  to="/stock"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Boxes size={16} />
-                  <span>Stock Quants</span>
-                </NavLink>
-                <NavLink
-                  to="/products/categories"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Tags size={16} />
-                  <span>Categories</span>
-                </NavLink>
-                <NavLink
-                  to="/moves"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <History size={16} />
-                  <span>Move History</span>
-                </NavLink>
-              </div>
-
-              {/* Settings Group */}
-              <div className="mobile-nav-group">
-                <span className="mobile-group-title">Settings</span>
-                <NavLink
-                  to="/settings/warehouses"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Warehouse size={16} />
-                  <span>Warehouses</span>
-                </NavLink>
-                <NavLink
-                  to="/settings/locations"
-                  className={({ isActive }) =>
-                    `mobile-nav-link sub ${isActive ? 'active' : ''}`
-                  }
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <MapPin size={16} />
-                  <span>Locations</span>
-                </NavLink>
-              </div>
-
-              {/* User Section in Mobile Menu */}
-              <div className="mobile-user-section">
-                <NavLink
-                  to="/profile"
-                  className="mobile-nav-link"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <span className="avatar sm">{initials}</span>
-                  <span>My Profile ({user?.name})</span>
-                </NavLink>
-                <button
-                  type="button"
-                  className="mobile-logout-btn"
-                  onClick={handleLogout}
-                >
-                  <LogOut size={16} />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </nav>
-          </div>
-        )}
       </header>
 
       {/* ========================================================
@@ -657,13 +529,96 @@ export function Layout() {
         </div>
       </main>
 
-      {/* Mobile Drawer Backdrop */}
-      {mobileMenuOpen && (
-        <div
-          className="top-mobile-backdrop"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+      {/* ========================================================
+          MOBILE SIDEBAR DRAWER (Classic Slide-over Sidebar)
+      ======================================================== */}
+      <aside className={`mobile-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+        <div className="mobile-sidebar-head">
+          <div className="brand">
+            <img src="/logo.svg" alt="StockSense" width="28" height="28" />
+            <span className="brand-text">StockSense</span>
+          </div>
+          <button
+            type="button"
+            className="mobile-close-btn"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="mobile-sidebar-nav">
+          {MOBILE_NAV.map((item) =>
+            item.children ? (
+              <div key={item.label} className="nav-group">
+                <span className="nav-group-title">{item.label}</span>
+                {item.children.map((c) => {
+                  const Icon = c.icon;
+                  return (
+                    <NavLink
+                      key={c.to}
+                      to={c.to}
+                      end={c.end}
+                      className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {Icon && <Icon size={16} className="nav-icon" />}
+                      <span>{c.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            ) : (
+              (() => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {Icon && <Icon size={16} className="nav-icon" />}
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })()
+            )
+          )}
+        </nav>
+
+        <div className="profile-menu">
+          <NavLink
+            to="/profile"
+            className={({ isActive }) => `profile-link ${isActive ? 'active' : ''}`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <span className="avatar">{initials}</span>
+            <span>
+              <strong>{user?.name}</strong>
+              <small className="muted">{user?.role || 'My Profile'}</small>
+            </span>
+          </NavLink>
+          <button
+            type="button"
+            className="btn btn-ghost full"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              handleLogout();
+            }}
+          >
+            <LogOut size={15} /> Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Backdrop Scrim */}
+      <div
+        className={`mobile-scrim ${mobileMenuOpen ? 'open' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
     </div>
   );
 }
