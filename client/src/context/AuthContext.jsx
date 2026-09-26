@@ -37,24 +37,40 @@ export function AuthProvider({ children }) {
     endSession();
   }, [endSession]);
 
+  const resolveUserWithAvatar = useCallback((u) => {
+    if (!u) return null;
+    let localAvatar = null;
+    try {
+      localAvatar = localStorage.getItem('stocksense_avatar_' + (u.id || 'default'));
+    } catch {}
+    const validAvatar = (localAvatar && localAvatar.startsWith('data:image/'))
+      ? localAvatar
+      : (u.avatarUrl && u.avatarUrl.startsWith('data:image/'))
+        ? u.avatarUrl
+        : null;
+    return { ...u, avatarUrl: validAvatar };
+  }, []);
+
   const loadSession = useCallback(async () => {
     const [u, p] = await Promise.all([authApi.me(), authApi.preferences().catch(() => DEFAULT_PREFS)]);
-    setUser(u);
+    const resolved = resolveUserWithAvatar(u);
+    setUser(resolved);
     applyPrefs(p);
-    return { user: u, prefs: p };
-  }, [applyPrefs]);
+    return { user: resolved, prefs: p };
+  }, [applyPrefs, resolveUserWithAvatar]);
 
   const refreshUser = useCallback(async () => {
     if (!tokenStore.get()) return null;
     try {
       const u = await authApi.me();
-      setUser(u);
-      return u;
+      const resolved = resolveUserWithAvatar(u);
+      setUser(resolved);
+      return resolved;
     } catch {
       endSession();
       return null;
     }
-  }, [endSession]);
+  }, [endSession, resolveUserWithAvatar]);
 
   useEffect(() => {
     setUnauthorizedHandler(endSession);
@@ -63,7 +79,7 @@ export function AuthProvider({ children }) {
   }, [endSession, loadSession]);
 
   // Re-read the profile (role + permissions) after a manager changes it.
-  const refresh = useCallback(() => authApi.me().then(setUser).catch(() => {}), []);
+  const refresh = useCallback(() => authApi.me().then((u) => setUser(resolveUserWithAvatar(u))).catch(() => {}), [resolveUserWithAvatar]);
 
   const value = useMemo(() => {
     const permissions = new Set(user?.permissions ?? []);
@@ -83,7 +99,12 @@ export function AuthProvider({ children }) {
       },
       // Sign-up does not start a session: the account waits for a manager's approval.
       signup: (data) => authApi.signup(data),
-      updateProfile: async (data) => setUser(await authApi.updateMe(data)),
+      updateProfile: async (data) => {
+        const u = await authApi.updateMe(data);
+        const resolved = resolveUserWithAvatar(u);
+        setUser(resolved);
+        return resolved;
+      },
       updatePreferences: async (patch) => applyPrefs(await authApi.updatePreferences(patch)),
       setUser,
       refresh,
@@ -91,7 +112,7 @@ export function AuthProvider({ children }) {
       logout,
       endSession,
     };
-  }, [user, prefs, loading, logout, endSession, loadSession, refresh, refreshUser, applyPrefs]);
+  }, [user, prefs, loading, logout, endSession, loadSession, refresh, refreshUser, applyPrefs, resolveUserWithAvatar]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
