@@ -1,21 +1,21 @@
 import { z } from 'zod';
 
 export const loginIdSchema = z
-  .string({ required_error: 'Login ID is required' })
+  .string({ error: 'Login ID is required' })
   .trim()
   .min(6, 'Login ID must be 6-12 characters')
   .max(12, 'Login ID must be 6-12 characters')
   .regex(/^[A-Za-z0-9_.]+$/, 'Login ID may only contain letters, numbers, "." and "_"');
 
 export const emailSchema = z
-  .string({ required_error: 'Email is required' })
+  .string({ error: 'Email is required' })
   .trim()
   .toLowerCase()
   .email('Please enter a valid email address');
 
 // Mock-up rule: lower case + upper case + special character, more than 8 characters.
 export const passwordSchema = z
-  .string({ required_error: 'Password is required' })
+  .string({ error: 'Password is required' })
   .min(9, 'Password must be more than 8 characters')
   .max(72, 'Password must be at most 72 characters')
   .regex(/[a-z]/, 'Password must contain a lowercase letter')

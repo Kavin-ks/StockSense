@@ -2,6 +2,8 @@ import { query, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../utils/AppError.js';
 import { moveStock, nextReference } from '../stock/stock.service.js';
 import { resolveScope, virtualLocationId } from '../warehouses/warehouses.service.js';
+import { publish } from '../realtime/realtime.bus.js';
+import { afterStockChange } from '../operations/operations.service.js';
 
 /*
  * Stock figures per product, scoped by $1 = warehouse id and $2 = location id (both nullable):
@@ -32,6 +34,7 @@ const STOCK_CTE = `
      GROUP BY product_id)`;
 
 const PRODUCT_COLS = `p.id, p.name, p.sku, p.uom, p.unit_cost AS "unitCost", p.category_id AS "categoryId",
+  p.updated_at AS "updatedAt",
   c.name AS "categoryName",
   COALESCE(s.on_hand, 0) AS "onHand",
   COALESCE(s.on_hand, 0) - COALESCE(r.qty, 0) AS "freeToUse",
@@ -82,7 +85,7 @@ export async function getProduct(id) {
   return { ...rows[0], stockByLocation: locations.rows, reorderRules: rules.rows };
 }
 
-export async function createProduct(data, userId) {
+export async function createProduct(data, actor) {
   const id = await withTransaction(async (db) => {
     const { rows } = await db.query(
       `INSERT INTO products (name, sku, category_id, uom, unit_cost) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
@@ -100,34 +103,46 @@ export async function createProduct(data, userId) {
         quantity: data.initialStock,
         reference: await nextReference(db, loc.rows[0].warehouse_id, 'adjustment'),
         contact: 'Initial stock',
-        userId,
+        userId: actor.id,
       });
+      await afterStockChange(db, [productId], actor);
     }
+    await publish(db, 'products', { id: productId, action: 'created' }, actor);
     return productId;
   });
   return getProduct(id);
 }
 
-export async function updateProduct(id, data) {
+export async function updateProduct(id, data, actor) {
+  // Optimistic concurrency: only update if nobody saved since the client loaded it.
+  // (JSON dates carry milliseconds; Postgres stores microseconds, hence date_trunc.)
   const { rowCount } = await query(
-    `UPDATE products SET name=$1, sku=$2, category_id=$3, uom=$4, unit_cost=$5, updated_at=now() WHERE id=$6`,
-    [data.name, data.sku, data.categoryId ?? null, data.uom, data.unitCost, id],
+    `UPDATE products SET name=$1, sku=$2, category_id=$3, uom=$4, unit_cost=$5, updated_at=now()
+      WHERE id=$6 AND ($7::timestamptz IS NULL OR date_trunc('milliseconds', updated_at) = $7::timestamptz)`,
+    [data.name, data.sku, data.categoryId ?? null, data.uom, data.unitCost, id, data.expectedUpdatedAt ?? null],
   );
-  if (!rowCount) throw AppError.notFound('Product');
+  if (!rowCount) {
+    const exists = await query('SELECT 1 FROM products WHERE id = $1', [id]);
+    if (!exists.rowCount) throw AppError.notFound('Product');
+    throw AppError.conflict('Someone else changed this product while you were editing. Reload to see the latest version.');
+  }
+  await publish({ query }, 'products', { id, action: 'updated' }, actor);
   return getProduct(id);
 }
 
-export async function upsertReorderRule(productId, { warehouseId, minQty, maxQty }) {
+export async function upsertReorderRule(productId, { warehouseId, minQty, maxQty }, actor) {
   await query(
     `INSERT INTO reorder_rules (product_id, warehouse_id, min_qty, max_qty) VALUES ($1,$2,$3,$4)
      ON CONFLICT (product_id, warehouse_id) DO UPDATE SET min_qty = EXCLUDED.min_qty, max_qty = EXCLUDED.max_qty`,
     [productId, warehouseId, minQty, maxQty],
   );
+  await publish({ query }, 'products', { id: productId, action: 'rules' }, actor);
   return getProduct(productId);
 }
 
-export async function deleteReorderRule(productId, ruleId) {
+export async function deleteReorderRule(productId, ruleId, actor) {
   await query('DELETE FROM reorder_rules WHERE id = $1 AND product_id = $2', [ruleId, productId]);
+  await publish({ query }, 'products', { id: productId, action: 'rules' }, actor);
   return getProduct(productId);
 }
 
@@ -141,7 +156,8 @@ export async function listCategories() {
   return rows;
 }
 
-export async function createCategory({ name }) {
+export async function createCategory({ name }, actor) {
   const { rows } = await query('INSERT INTO product_categories (name) VALUES ($1) RETURNING id, name', [name]);
+  await publish({ query }, 'categories', { id: rows[0].id, action: 'created' }, actor);
   return rows[0];
 }

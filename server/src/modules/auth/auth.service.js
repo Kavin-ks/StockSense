@@ -4,15 +4,22 @@ import { query, withTransaction } from '../../db/pool.js';
 import { env } from '../../config/env.js';
 import { AppError } from '../../utils/AppError.js';
 import { signToken } from '../../middleware/auth.js';
+import { permissionsFor } from '../../config/permissions.js';
 import { sendMail } from '../../utils/mailer.js';
+import { publish } from '../realtime/realtime.bus.js';
 
-const PUBLIC_COLUMNS = 'id, login_id AS "loginId", name, email, role, created_at AS "createdAt"';
+export const PUBLIC_COLUMNS = `id, login_id AS "loginId", name, email, role, is_active AS "isActive",
+  created_at AS "createdAt"`;
 const INVALID_LOGIN = 'Invalid Login Id or Password';
 const INVALID_OTP = () => AppError.badRequest('Invalid or expired OTP', { otp: 'Invalid or expired OTP' });
 // Compared against when the login id is unknown, so timing does not leak account existence.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12);
 
-export async function signup({ loginId, name, email, password }) {
+/** Attach the role's permission list so the UI hides exactly what the API forbids. */
+export const withPermissions = (user) => ({ ...user, permissions: permissionsFor(user.role) });
+
+/** Field-level duplicate check shared by sign-up and manager-created accounts. */
+export async function assertIdentityAvailable(loginId, email) {
   const clash = await query(
     'SELECT login_id, email FROM users WHERE login_id = $1 OR lower(email) = $2',
     [loginId, email],
@@ -23,14 +30,20 @@ export async function signup({ loginId, name, email, password }) {
     if (row.email.toLowerCase() === email) fields.email = 'This email is already registered';
   }
   if (Object.keys(fields).length) throw AppError.conflict('Account already exists', fields);
+}
 
-  const hash = await bcrypt.hash(password, 12);
+export const hashPassword = (password) => bcrypt.hash(password, 12);
+
+// Public sign-up always creates Warehouse Staff; managers are promoted by a manager
+// or bootstrapped with `npm run create-manager`.
+export async function signup({ loginId, name, email, password }) {
+  await assertIdentityAvailable(loginId, email);
   const { rows } = await query(
-    `INSERT INTO users (login_id, name, email, password_hash) VALUES ($1,$2,$3,$4)
+    `INSERT INTO users (login_id, name, email, password_hash, role) VALUES ($1,$2,$3,$4,'staff')
      RETURNING ${PUBLIC_COLUMNS}`,
-    [loginId, name, email, hash],
+    [loginId, name, email, await hashPassword(password)],
   );
-  return { user: rows[0], token: signToken(rows[0]) };
+  return { user: withPermissions(rows[0]), token: signToken(rows[0]) };
 }
 
 export async function login({ loginId, password }) {
@@ -41,8 +54,10 @@ export async function login({ loginId, password }) {
   const user = rows[0];
   const ok = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !ok) throw AppError.unauthorized(INVALID_LOGIN);
+  // Only revealed after a correct password, so it does not help account guessing.
+  if (!user.isActive) throw AppError.forbidden('Your account has been deactivated. Contact your manager.');
   delete user.password_hash;
-  return { user, token: signToken(user) };
+  return { user: withPermissions(user), token: signToken(user) };
 }
 
 export async function requestPasswordReset({ email }) {
@@ -95,7 +110,7 @@ export async function resetPassword({ email, otp, password }) {
 export async function getProfile(userId) {
   const { rows } = await query(`SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = $1`, [userId]);
   if (!rows[0]) throw AppError.notFound('User');
-  return rows[0];
+  return withPermissions(rows[0]);
 }
 
 export async function updateProfile(userId, { name, email }) {
@@ -103,5 +118,6 @@ export async function updateProfile(userId, { name, email }) {
     `UPDATE users SET name = $1, email = $2, updated_at = now() WHERE id = $3 RETURNING ${PUBLIC_COLUMNS}`,
     [name, email, userId],
   );
-  return rows[0];
+  await publish({ query }, 'users', { id: userId, action: 'updated' }, { id: userId, name });
+  return withPermissions(rows[0]);
 }
