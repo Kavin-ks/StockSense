@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -80,6 +80,56 @@ export function Layout() {
   const isSettingsActive = pathname.startsWith('/settings');
   const isProfileActive = pathname.startsWith('/profile');
 
+    // Sliding Liquid Glass Tracker Button
+  const menuContainerRef = useRef(null);
+  const dashboardRef = useRef(null);
+  const operationsRef = useRef(null);
+  const productsRef = useRef(null);
+  const settingsRef = useRef(null);
+
+  const [pillStyle, setPillStyle] = useState({ left: 0, width: 0, opacity: 0 });
+
+  // Determine which nav section is active or hovered
+  let currentSection = 'dashboard';
+  if (activeDropdown === 'operations' || (!activeDropdown && isOperationsActive)) {
+    currentSection = 'operations';
+  } else if (activeDropdown === 'products' || (!activeDropdown && isProductsActive)) {
+    currentSection = 'products';
+  } else if (activeDropdown === 'settings' || (!activeDropdown && isSettingsActive)) {
+    currentSection = 'settings';
+  } else if (pathname === '/' || pathname === '/dashboard') {
+    currentSection = 'dashboard';
+  }
+
+  const updatePill = useCallback(() => {
+    let targetEl = null;
+    if (currentSection === 'dashboard') targetEl = dashboardRef.current;
+    else if (currentSection === 'operations') targetEl = operationsRef.current;
+    else if (currentSection === 'products') targetEl = productsRef.current;
+    else if (currentSection === 'settings') targetEl = settingsRef.current;
+
+    const containerEl = menuContainerRef.current;
+    if (targetEl && containerEl) {
+      const targetRect = targetEl.getBoundingClientRect();
+      const containerRect = containerEl.getBoundingClientRect();
+      setPillStyle({
+        left: targetRect.left - containerRect.left,
+        width: targetRect.width,
+        opacity: 1,
+      });
+    }
+  }, [currentSection]);
+
+  useEffect(() => {
+    updatePill();
+    const timer = setTimeout(updatePill, 50);
+    window.addEventListener('resize', updatePill);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updatePill);
+    };
+  }, [updatePill]);
+
   const initials = user?.name
     ? user.name
         .split(' ')
@@ -154,14 +204,31 @@ export function Layout() {
           </div>
 
           {/* Center: Navigation Links & Single-Column Dropdowns */}
-          <nav className="top-nav-menu" aria-label="Main Navigation">
+          <nav
+            ref={menuContainerRef}
+            className="top-nav-menu"
+            aria-label="Main Navigation"
+          >
+            {/* Sliding Liquid Glass Nav Track Button */}
+            <div
+              className="nav-track-button"
+              style={{
+                left: `${pillStyle.left}px`,
+                width: `${pillStyle.width}px`,
+                opacity: pillStyle.opacity,
+              }}
+              aria-hidden="true"
+            />
+
             {/* 1. Dashboard */}
             <NavLink
+              ref={dashboardRef}
               to="/"
               end
               className={({ isActive }) =>
                 `top-nav-link ${isActive ? 'active' : ''}`
               }
+              onClick={() => setActiveDropdown(null)}
             >
               <LayoutDashboard size={16} className="nav-item-icon" />
               <span>Dashboard</span>
@@ -176,9 +243,10 @@ export function Layout() {
               onMouseLeave={handleMouseLeave}
             >
               <button
+                ref={operationsRef}
                 type="button"
                 className={`top-nav-link dropdown-trigger ${
-                  isOperationsActive ? 'active' : ''
+                  isOperationsActive || activeDropdown === 'operations' ? 'active' : ''
                 }`}
                 onClick={() => toggleDropdown('operations')}
                 aria-expanded={activeDropdown === 'operations'}
@@ -281,9 +349,10 @@ export function Layout() {
               onMouseLeave={handleMouseLeave}
             >
               <button
+                ref={productsRef}
                 type="button"
                 className={`top-nav-link dropdown-trigger ${
-                  isProductsActive ? 'active' : ''
+                  isProductsActive || activeDropdown === 'products' ? 'active' : ''
                 }`}
                 onClick={() => toggleDropdown('products')}
                 aria-expanded={activeDropdown === 'products'}
@@ -405,9 +474,10 @@ export function Layout() {
               onMouseLeave={handleMouseLeave}
             >
               <button
+                ref={settingsRef}
                 type="button"
                 className={`top-nav-link dropdown-trigger ${
-                  isSettingsActive ? 'active' : ''
+                  isSettingsActive || activeDropdown === 'settings' ? 'active' : ''
                 }`}
                 onClick={() => toggleDropdown('settings')}
                 aria-expanded={activeDropdown === 'settings'}
