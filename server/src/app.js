@@ -1,4 +1,5 @@
 import express from 'express';
+import './config/zod.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
@@ -12,7 +13,11 @@ import { productRouter, categoryRouter } from './modules/products/products.route
 import operationRoutes from './modules/operations/operations.routes.js';
 import moveRoutes from './modules/stock/stock.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import userRoutes from './modules/users/users.routes.js';
+import realtimeRoutes from './modules/realtime/realtime.routes.js';
 import exportRoutes from './modules/export/export.routes.js';
+import reportRoutes from './modules/reports/reports.routes.js';
+import importRoutes from './modules/import/import.routes.js';
 import { avatarUpload } from './middleware/upload.js';
 import { asyncHandler } from './utils/asyncHandler.js';
 import { pool } from './db/pool.js';
@@ -31,6 +36,8 @@ export function createApp() {
 
   // Public
   app.use('/api/auth', authRoutes);
+  // Live updates: token endpoint uses the session header, the stream uses a 60s stream token.
+  app.use('/api/events', realtimeRoutes);
 
   // Everything below requires a valid session
   const api = express.Router();
@@ -42,18 +49,21 @@ export function createApp() {
   api.use('/products', productRouter);
   api.use('/operations', operationRoutes);
   api.use('/moves', moveRoutes);
+  api.use('/users', userRoutes);
   api.use('/export', exportRoutes);
+  api.use('/import', importRoutes);
+  api.use('/reports', reportRoutes);
 
   // Avatar upload
   api.post('/auth/me/avatar', avatarUpload.single('avatar'), asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: { message: 'No valid image file provided. Accepted: JPEG, PNG, GIF, WebP (max 2MB).' } });
     const avatarUrl = '/uploads/avatars/' + req.file.filename;
-    await pool.query('UPDATE users SET avatar_url = , updated_at = now() WHERE id = ', [avatarUrl, req.user.id]);
+    await pool.query('UPDATE users SET avatar_url = $1, updated_at = now() WHERE id = $2', [avatarUrl, req.user.id]);
     res.json({ avatarUrl });
   }));
 
   api.delete('/auth/me/avatar', asyncHandler(async (req, res) => {
-    await pool.query('UPDATE users SET avatar_url = NULL, updated_at = now() WHERE id = ', [req.user.id]);
+    await pool.query('UPDATE users SET avatar_url = NULL, updated_at = now() WHERE id = $1', [req.user.id]);
     res.json({ avatarUrl: null });
   }));
 

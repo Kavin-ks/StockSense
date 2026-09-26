@@ -16,7 +16,7 @@ export async function getSummary({ warehouseId, locationId, categoryId }) {
 
   const stock = await query(
     `WITH per_product AS (
-       SELECT p.id,
+       SELECT p.id, p.unit_cost,
               COALESCE(sum(q.quantity) FILTER (
                 WHERE l.type = 'internal'
                   AND ($1::int IS NULL OR l.warehouse_id = $1)
@@ -30,7 +30,9 @@ export async function getSummary({ warehouseId, locationId, categoryId }) {
          LEFT JOIN locations l ON l.id = q.location_id
         WHERE p.is_active AND ($2::int IS NULL OR p.category_id = $2)
         GROUP BY p.id)
-     SELECT count(*) FILTER (WHERE on_hand > 0)::int                        AS "productsInStock",
+     SELECT COALESCE(sum(on_hand * unit_cost), 0)::numeric(14,2)           AS "stockValue",
+            COALESCE(sum(on_hand), 0)                                       AS "unitsOnHand",
+            count(*) FILTER (WHERE on_hand > 0)::int                        AS "productsInStock",
             count(*) FILTER (WHERE on_hand > 0 AND on_hand <= min_qty)::int AS "lowStock",
             count(*) FILTER (WHERE on_hand <= 0)::int                       AS "outOfStock",
             count(*)::int                                                   AS "totalProducts"
@@ -43,7 +45,8 @@ export async function getSummary({ warehouseId, locationId, categoryId }) {
     `SELECT o.type, o.status,
             count(*)::int                                                  AS total,
             count(*) FILTER (WHERE o.scheduled_date <  CURRENT_DATE)::int  AS overdue,
-            count(*) FILTER (WHERE o.scheduled_date >= CURRENT_DATE)::int  AS upcoming
+            count(*) FILTER (WHERE o.scheduled_date =  CURRENT_DATE)::int  AS today,
+            count(*) FILTER (WHERE o.scheduled_date >  CURRENT_DATE)::int  AS upcoming
        FROM operations o
       WHERE ($1::int IS NULL OR o.warehouse_id = $1
              OR EXISTS (SELECT 1 FROM locations x
@@ -77,9 +80,12 @@ export async function getSummary({ warehouseId, locationId, categoryId }) {
   );
 
   const breakdown = Object.fromEntries(TYPES.map((t) => [t, Object.fromEntries(STATUSES.map((st) => [st, 0]))]));
+  // Mock-up: "Late: schedule date < today; Operations: schedule date > today". Today's work is
+  // counted separately so it is never hidden between the two.
   const cards = Object.fromEntries(TYPES.map((t) => [t, {
     pending: 0,
     late: 0,
+    today: 0,
     waiting: 0,
     ready: 0,
     upcoming: 0,
@@ -93,6 +99,7 @@ export async function getSummary({ warehouseId, locationId, categoryId }) {
     const c = cards[r.type];
     c.pending += r.total;
     c.late += r.overdue;      // late = scheduled before today and still open
+    c.today += r.today;
     c.upcoming += r.upcoming;
     if (r.status === 'waiting') c.waiting += r.total;
     if (r.status === 'ready') c.ready += r.total;
@@ -131,7 +138,7 @@ export async function getLowStockAlerts() {
             COALESCE(sum(q.quantity), 0) AS "onHand"
        FROM reorder_rules r
        JOIN products p   ON p.id = r.product_id AND p.is_active
-       JOIN warehouses w ON w.id = r.warehouse_id
+       JOIN warehouses w ON w.id = r.warehouse_id AND w.is_active
        LEFT JOIN locations l    ON l.warehouse_id = w.id AND l.type = 'internal'
        LEFT JOIN stock_quants q ON q.location_id = l.id AND q.product_id = p.id
       GROUP BY p.id, w.id, r.min_qty

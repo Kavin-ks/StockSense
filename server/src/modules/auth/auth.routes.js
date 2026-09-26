@@ -1,9 +1,11 @@
 import { Router } from 'express';
+import { z } from 'zod';
+import { query } from '../../db/pool.js';
 import rateLimit from 'express-rate-limit';
 import { asyncHandler } from '../../utils/asyncHandler.js';
+import { AppError } from '../../utils/AppError.js';
 import { validate } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/auth.js';
-import { AppError } from '../../utils/AppError.js';
 import * as schemas from './auth.schemas.js';
 import * as service from './auth.service.js';
 
@@ -23,7 +25,7 @@ router.post('/signup', authLimiter, validate({ body: schemas.signupSchema }), as
 }));
 
 router.post('/login', authLimiter, validate({ body: schemas.loginSchema }), asyncHandler(async (req, res) => {
-  res.json(await service.login(req.valid.body));
+  res.json(await service.login(req.valid.body, { userAgent: req.get('user-agent'), ip: req.ip }));
 }));
 
 router.post('/forgot-password', authLimiter, validate({ body: schemas.forgotPasswordSchema }), asyncHandler(async (req, res) => {
@@ -43,5 +45,28 @@ router.get('/me', requireAuth, asyncHandler(async (req, res) => {
 router.put('/me', requireAuth, validate({ body: schemas.updateProfileSchema }), asyncHandler(async (req, res) => {
   res.json(await service.updateProfile(req.user.id, req.valid.body));
 }));
+
+router.put('/me/password', requireAuth, authLimiter, validate({ body: schemas.changePasswordSchema }), asyncHandler(async (req, res) => {
+  res.json(await service.changePassword(req.user, req.valid.body));
+}));
+
+router.get('/me/sessions', requireAuth, asyncHandler(async (req, res) => res.json(await service.listSessions(req.user))));
+router.post('/me/sessions/revoke-others', requireAuth, asyncHandler(async (req, res) =>
+  res.json({ signedOutSessions: await service.revokeOtherSessions(req.user) })));
+router.delete('/me/sessions/:id', requireAuth, validate({ params: z.object({ id: z.coerce.number().int().positive() }) }),
+  asyncHandler(async (req, res) => {
+    await service.revokeSession(req.user, req.valid.params.id);
+    res.status(204).end();
+  }));
+
+// Ends the current session server-side (the client also forgets its token).
+router.post('/logout', requireAuth, asyncHandler(async (req, res) => {
+  await service.revokeSessions({ query }, req.user.id, { onlySessionId: req.user.sessionId });
+  res.status(204).end();
+}));
+
+router.get('/me/preferences', requireAuth, asyncHandler(async (req, res) => res.json(await service.getPreferences(req.user.id))));
+router.put('/me/preferences', requireAuth, validate({ body: schemas.preferencesSchema }), asyncHandler(async (req, res) =>
+  res.json(await service.updatePreferences(req.user.id, req.valid.body))));
 
 export default router;

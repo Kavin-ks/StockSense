@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { toOptions, useCategories, useLocations, useWarehouses } from '../hooks/useLookups.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { Button, SearchInput, Select } from './ui.jsx';
 
 export const TYPE_OPTIONS = [
@@ -21,6 +23,18 @@ const FILTER_KEYS = ['search', 'warehouseId', 'locationId', 'categoryId', 'type'
  */
 export function FilterBar({ filters, onChange, fields, searchPlaceholder, statusOptions = STATUS_OPTIONS, children }) {
   const show = new Set(fields);
+  const { prefs } = useAuth();
+
+  // Preference "Primary assigned warehouse": pre-select it once when a page opens without a
+  // warehouse/location in the URL. Choosing "All warehouses" afterwards is respected.
+  const appliedDefault = useRef(false);
+  useEffect(() => {
+    if (appliedDefault.current) return;
+    appliedDefault.current = true;
+    if (show.has('warehouseId') && prefs?.defaultWarehouseId && !filters.warehouseId && !filters.locationId) {
+      onChange({ warehouseId: String(prefs.defaultWarehouseId) });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { data: warehouses } = useWarehouses();
   const { data: categories } = useCategories();
   const { data: locations } = useLocations(filters.warehouseId);

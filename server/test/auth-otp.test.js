@@ -13,13 +13,14 @@ test('Password Reset & Brevo OTP Flow Security Suite', async (t) => {
   // Cleanup any leftover test data
   await query('DELETE FROM users WHERE email = $1 OR login_id = $2', [testEmail, testLoginId]);
 
-  // Create test user
+  // Create test user and activate for login/reset tests
   const { user } = await authService.signup({
     loginId: testLoginId,
     name: 'Test OTP User',
     email: testEmail,
     password: initialPassword,
   });
+  await query("UPDATE users SET status = 'active', approved_at = now() WHERE id = $1", [user.id]);
 
   await t.test('Forgot password only accessible to existing users', async () => {
     // Non-existent email must be rejected
@@ -77,7 +78,8 @@ test('Password Reset & Brevo OTP Flow Security Suite', async (t) => {
       confirmPassword: 'ValidPassword@123',
       otp: knownSignupOtp,
     });
-    assert.ok(newSignupUser.token);
+    assert.ok(newSignupUser.user?.id);
+    assert.ok(newSignupUser.pending);
     assert.equal(newSignupUser.user.loginId, signupLoginId);
 
     // Cleanup signup test user

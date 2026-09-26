@@ -31,6 +31,7 @@ export default function SignupPage() {
   const [step, setStep] = useState('form'); // 'form' | 'otp'
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [info, setInfo] = useState('');
+  const [requested, setRequested] = useState(null);
 
   const form = useForm({ loginId: '', name: '', email: '', password: '', confirmPassword: '', otp: '' }, {
     validate: (v) => validateSignup(v, step),
@@ -47,7 +48,7 @@ export default function SignupPage() {
         setStep('otp');
         setHasSubmitted(false);
       } else {
-        await authApi.signup({
+        const res = await authApi.signup({
           loginId: v.loginId.trim(),
           name: v.name.trim(),
           email: v.email.trim().toLowerCase(),
@@ -55,8 +56,12 @@ export default function SignupPage() {
           confirmPassword: v.confirmPassword,
           otp: v.otp.trim(),
         });
-        notify('Account created successfully. Please sign in.');
-        navigate('/login', { state: { loginId: v.loginId.trim() }, replace: true });
+        if (res.pending) {
+          setRequested(res.user);
+        } else {
+          notify('Account created successfully. Please sign in.');
+          navigate('/login', { state: { loginId: v.loginId.trim() }, replace: true });
+        }
       }
     },
   });
@@ -89,6 +94,21 @@ export default function SignupPage() {
     setHasSubmitted(false);
     form.set('otp', '');
   };
+
+  if (requested) {
+    return (
+      <AuthShell title="Request sent" subtitle="Your account is waiting for approval.">
+        <div className="stack">
+          <Alert tone="info">
+            Thanks, {requested.name}. An inventory manager has been notified and needs to approve your account
+            (Login ID <strong>{requested.loginId}</strong>) before you can sign in.
+          </Alert>
+          <p className="muted small-print">Once approved, sign in with the Login ID and password you just chose.</p>
+          <Link className="btn btn-primary" to="/login">Back to sign in</Link>
+        </div>
+      </AuthShell>
+    );
+  }
 
   const confirmStarted = form.values.confirmPassword.length > 0;
   const passwordsMatch = form.values.password === form.values.confirmPassword;
@@ -144,6 +164,7 @@ export default function SignupPage() {
               )}
             </div>
             <Button type="submit" loading={form.submitting}>Send verification code</Button>
+            <p className="muted center small-print">New accounts start as <strong>Warehouse Staff</strong> and need an inventory manager's approval before you can sign in.</p>
             <p className="auth-links center">Already have an account? <Link to="/login">Sign in</Link></p>
           </>
         ) : (
@@ -171,4 +192,3 @@ export default function SignupPage() {
     </AuthShell>
   );
 }
-

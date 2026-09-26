@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { locationApi } from '../../api/endpoints.js';
-import { toOptions, useLocations, useWarehouses } from '../../hooks/useLookups.js';
+import { toOptions, useWarehouses } from '../../hooks/useLookups.js';
+import { useFetch } from '../../hooks/useFetch.js';
+import { ArchiveButton, ShowArchivedToggle } from '../../components/ArchiveButton.jsx';
 import { useQueryState } from '../../hooks/useQueryState.js';
 import { useForm } from '../../hooks/useForm.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
 import { Alert, Button, ErrorState, Input, Modal, PageHeader, Select, Spinner } from '../../components/ui.jsx';
 
@@ -43,20 +46,29 @@ function LocationModal({ location, warehouses, defaultWarehouseId, onClose, onSa
 export default function LocationsPage() {
   const [q, setQ] = useQueryState({});
   const { data: warehouses } = useWarehouses();
-  const { data, error, loading, reload } = useLocations(q.warehouseId);
+  const showArchived = q.archived === 'true';
+  const { data, error, loading, reload } = useFetch(
+    () => locationApi.list({ warehouseId: q.warehouseId, includeArchived: showArchived ? 'true' : undefined }),
+    [q.warehouseId, showArchived], { live: ['locations', 'warehouses'] });
   const [editing, setEditing] = useState(undefined);
+  const canWrite = useAuth().can('settings.write');
   return (
     <>
       <PageHeader title="Locations" subtitle="Racks, rooms and zones inside each warehouse">
         <Select placeholder="All warehouses" value={q.warehouseId ?? ''} options={toOptions(warehouses)} onChange={(e) => setQ({ warehouseId: e.target.value })} aria-label="Warehouse" />
-        <Button onClick={() => setEditing(null)}>New location</Button>
+        <ShowArchivedToggle checked={showArchived} onChange={(v) => setQ({ archived: v ? 'true' : '' })} />
+        {canWrite && <Button onClick={() => setEditing(null)}>New location</Button>}
       </PageHeader>
       {error && <ErrorState error={error} onRetry={reload} />}
       {loading && !data ? <Spinner /> : (
-        <DataTable rows={data} onRowClick={setEditing} emptyTitle="No locations yet" columns={[
-          { key: 'fullCode', header: 'Code', render: (l) => <code>{l.fullCode}</code> },
+        <DataTable rows={data} onRowClick={canWrite ? setEditing : undefined} emptyTitle="No locations yet"
+          emptyText="Locations are racks, rooms or zones inside a warehouse (e.g. Rack A)."
+          rowClassName={(l) => (l.isActive ? '' : 'dimmed')} columns={[
+          { key: 'fullCode', header: 'Code', render: (l) => <><code>{l.fullCode}</code>{!l.isActive && <span className="badge badge-canceled" style={{ marginLeft: 8 }}>archived</span>}</> },
           { key: 'name', header: 'Name' },
           { key: 'warehouseName', header: 'Warehouse' },
+          ...(canWrite ? [{ key: 'act', header: '', align: 'right',
+            render: (l) => <ArchiveButton item={l} api={locationApi} label={`Location ${l.fullCode}`} onDone={reload} /> }] : []),
         ]} />
       )}
       {editing !== undefined && <LocationModal location={editing} warehouses={warehouses} defaultWarehouseId={q.warehouseId}

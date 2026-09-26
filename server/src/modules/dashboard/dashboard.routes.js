@@ -15,7 +15,7 @@ router.get('/alerts', asyncHandler(async (_req, res) => res.json(await service.g
 
 // Small lookup used by "Responsible" pickers.
 router.get('/users', asyncHandler(async (_req, res) => {
-  const { rows } = await query('SELECT id, name, login_id AS "loginId" FROM users ORDER BY name');
+  const { rows } = await query(`SELECT id, name, login_id AS "loginId", role FROM users WHERE status = 'active' ORDER BY name`);
   res.json(rows);
 }));
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { operationApi, productApi } from '../../api/endpoints.js';
 import { useForm } from '../../hooks/useForm.js';
 import { toOptions, useLocations } from '../../hooks/useLookups.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useLiveRefresh } from '../../hooks/useLiveRefresh.js';
 import { Alert, Button, ErrorState, PageHeader, Select, Spinner, StatusBadge, Textarea } from '../../components/ui.jsx';
 import { fmtDate, fmtQty } from '../../utils.js';
 import { LinesEditor, validateLines } from './LinesEditor.jsx';
@@ -14,8 +15,16 @@ function NewAdjustment() {
   const notify = useToast();
   const { data: locations } = useLocations();
   const [recorded, setRecorded] = useState({});
+  const [stockVersion, setStockVersion] = useState(0);
+  const [params] = useSearchParams();
+  // "Update" on the Stock page opens this form with the product (and optionally location) pre-filled.
+  const preset = {
+    locationId: params.get('locationId') ?? '',
+    notes: '',
+    lines: params.get('productId') ? [{ productId: params.get('productId'), countedQty: '' }] : [],
+  };
 
-  const form = useForm({ locationId: '', notes: '', lines: [] }, {
+  const form = useForm(preset, {
     validate: (v) => {
       const e = {};
       if (!v.locationId) e.locationId = 'Location is required';
@@ -39,7 +48,16 @@ function NewAdjustment() {
       for (const p of ps) map[p.id] = p.stockByLocation.find((s) => String(s.locationId) === form.values.locationId)?.quantity ?? 0;
       setRecorded(map);
     }).catch(() => {});
-  }, [productIds, form.values.locationId]);
+  }, [productIds, form.values.locationId, stockVersion]);
+  // Someone else moved stock while this count is being entered: refresh the "Recorded" figures.
+  useLiveRefresh(['stock'], () => setStockVersion((v) => v + 1));
+
+  // Opened from the Stock page's "Update": show the product's name in the picker.
+  useEffect(() => {
+    const pid = params.get('productId');
+    if (!pid) return;
+    productApi.get(pid).then((p) => form.set('lines', [{ productId: String(p.id), sku: p.sku, productName: p.name, countedQty: '' }])).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lineInfo = (l) => {
     if (!l.productId || !form.values.locationId || recorded[l.productId] === undefined) return null;
@@ -85,9 +103,11 @@ function AdjustmentDetail({ id }) {
       <div className="card">
         {op.notes && <p>{op.notes}</p>}
         <table className="table">
-          <thead><tr><th>Product</th><th style={{ textAlign: 'right' }}>Counted</th><th style={{ textAlign: 'right' }}>Difference posted</th></tr></thead>
+          <thead><tr><th>Product</th><th style={{ textAlign: 'right' }}>Counted</th><th style={{ textAlign: 'right' }}>Change posted</th></tr></thead>
           <tbody>{op.lines.map((l) => (
-            <tr key={l.id}><td>[{l.sku}] {l.productName}</td><td style={{ textAlign: 'right' }}>{fmtQty(l.countedQty)} {l.uom}</td><td style={{ textAlign: 'right' }}>{fmtQty(l.quantity)}</td></tr>
+            <tr key={l.id}><td>[{l.sku}] {l.productName}</td><td style={{ textAlign: 'right' }}>{fmtQty(l.countedQty)} {l.uom}</td><td style={{ textAlign: 'right' }} className={Number(l.delta) > 0 ? 'text-success' : Number(l.delta) < 0 ? 'text-danger' : 'muted'}>
+              {Number(l.delta) > 0 ? '+' : ''}{fmtQty(l.delta ?? 0)} {Number(l.delta) === 0 || l.delta == null ? '(no change)' : ''}
+            </td></tr>
           ))}</tbody>
         </table>
       </div>

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout.jsx';
 import { GuestRoute, ProtectedRoute } from './components/ProtectedRoute.jsx';
 import { Spinner } from './components/ui.jsx';
+import { RequirePermission } from './components/RequirePermission.jsx';
 
 // Route-level code splitting keeps the first load small.
 const LoginPage = lazy(() => import('./pages/auth/LoginPage.jsx'));
@@ -16,9 +17,11 @@ const ProductListPage = lazy(() => import('./pages/products/ProductListPage.jsx'
 const ProductFormPage = lazy(() => import('./pages/products/ProductFormPage.jsx'));
 const CategoriesPage = lazy(() => import('./pages/products/CategoriesPage.jsx'));
 const MoveHistoryPage = lazy(() => import('./pages/MoveHistoryPage.jsx'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const WarehousesPage = lazy(() => import('./pages/settings/WarehousesPage.jsx'));
 const LocationsPage = lazy(() => import('./pages/settings/LocationsPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
+const UsersPage = lazy(() => import('./pages/settings/UsersPage.jsx'));
 
 const OPERATION_ROUTES = [
   { path: 'receipts', type: 'receipt' },
@@ -47,8 +50,10 @@ export default function App() {
           <Route path="products/:id" element={<ProductFormPage />} />
           <Route path="stock" element={<ProductListPage key="stock" mode="stock" />} />
           <Route path="moves" element={<MoveHistoryPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="settings/warehouses" element={<WarehousesPage />} />
           <Route path="settings/locations" element={<LocationsPage />} />
+          <Route path="settings/users" element={<RequirePermission permission="users.manage"><UsersPage /></RequirePermission>} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

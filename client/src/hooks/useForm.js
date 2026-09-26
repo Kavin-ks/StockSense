@@ -6,13 +6,18 @@ import { ApiError } from '../api/client.js';
  * `validate(values)` returns { field: message } for client-side checks.
  */
 export function useForm(initial, { validate, onSubmit }) {
-  const [values, setValues] = useState(initial);
+  const [values, setValuesState] = useState(initial);
+  // dirty = the user typed something since the values were last loaded/reset.
+  // Live updates only overwrite a form that is not dirty.
+  const [dirty, setDirty] = useState(false);
+  const setValues = (next) => { setValuesState(next); setDirty(false); };
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const set = (name, value) => {
-    setValues((v) => ({ ...v, [name]: value }));
+    setValuesState((v) => ({ ...v, [name]: value }));
+    setDirty(true);
     if (errors[name]) setErrors(({ [name]: _removed, ...rest }) => rest);
   };
 
@@ -43,5 +48,5 @@ export function useForm(initial, { validate, onSubmit }) {
     }
   };
 
-  return { values, setValues, set, bind, errors, setErrors, formError, submitting, handleSubmit };
+  return { values, setValues, set, bind, errors, setErrors, formError, setFormError, submitting, dirty, handleSubmit };
 }

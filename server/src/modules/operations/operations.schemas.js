@@ -16,7 +16,7 @@ const lines = z.array(line).min(1, 'Add at least one product')
 
 // Receipts / deliveries / internal transfers share one shape.
 export const operationSchema = z.object({
-  type: z.enum(['receipt', 'delivery', 'internal'], { errorMap: () => ({ message: 'Invalid operation type' }) }),
+  type: z.enum(['receipt', 'delivery', 'internal'], { error: 'Invalid operation type' }),
   warehouseId: z.coerce.number().int().positive('Warehouse is required'),
   sourceLocationId: optionalId,
   destLocationId: optionalId,
@@ -25,6 +25,8 @@ export const operationSchema = z.object({
   scheduledDate: isoDate,
   responsibleId: optionalId,
   notes: z.string().trim().max(1000).optional().default(''),
+  // Optimistic-concurrency token: the updatedAt the client loaded (edits only).
+  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
   lines,
 }).superRefine((d, ctx) => {
   if (d.type === 'receipt' && !d.contact) ctx.addIssue({ code: 'custom', path: ['contact'], message: 'Supplier is required' });
@@ -57,4 +59,11 @@ export const operationListQuery = z.object({
   search: z.string().trim().max(100).optional(),
   late: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
   ...pagination,
+});
+
+export const pickSchema = z.object({
+  lines: z.array(z.object({
+    lineId: z.coerce.number().int().positive(),
+    pickedQty: quantity('Picked quantity'),
+  })).min(1, 'Nothing to pick'),
 });

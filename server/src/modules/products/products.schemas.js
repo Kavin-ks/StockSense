@@ -8,8 +8,12 @@ export const productSchema = z.object({
   sku: z.string().trim().toUpperCase().min(2, 'SKU is required').max(40)
     .regex(/^[A-Z0-9_-]+$/, 'SKU may only contain letters, numbers, "-" and "_"'),
   categoryId: optionalId,
-  uom: z.enum(UOMS, { errorMap: () => ({ message: 'Choose a valid unit of measure' }) }),
+  uom: z.enum(UOMS, { error: 'Choose a valid unit of measure' }),
   unitCost: quantity('Unit cost').default(0),
+});
+
+export const updateProductSchema = productSchema.extend({
+  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
 });
 
 export const createProductSchema = productSchema.extend({
@@ -27,6 +31,7 @@ export const productListQuery = z.object({
   warehouseId: optionalId,
   locationId: optionalId,
   stockStatus: z.enum(['low', 'out', 'in']).optional().or(z.literal('').transform(() => undefined)),
+  archived: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
   ...pagination,
 });
 

@@ -6,7 +6,7 @@ import { pool } from './pool.js';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
 
-async function migrate() {
+export async function migrate({ log = console.log } = {}) {
   await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
     name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
   const { rows } = await pool.query('SELECT name FROM schema_migrations');
@@ -22,7 +22,7 @@ async function migrate() {
       await client.query(sql);
       await client.query('INSERT INTO schema_migrations (name) VALUES ($1)', [file]);
       await client.query('COMMIT');
-      console.log(`applied ${file}`);
+      log(`applied ${file}`);
     } catch (err) {
       await client.query('ROLLBACK');
       throw new Error(`Migration ${file} failed: ${err.message}`);
@@ -30,9 +30,12 @@ async function migrate() {
       client.release();
     }
   }
-  console.log('migrations up to date');
+  log('migrations up to date');
 }
 
-migrate()
-  .catch((err) => { console.error(err.message); process.exitCode = 1; })
-  .finally(() => pool.end());
+// Run directly (npm run db:migrate); importing the module only exposes migrate().
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  migrate()
+    .catch((err) => { console.error(err.message); process.exitCode = 1; })
+    .finally(() => pool.end());
+}

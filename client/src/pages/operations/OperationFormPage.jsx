@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { operationApi } from '../../api/endpoints.js';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { operationApi, productApi } from '../../api/endpoints.js';
 import { useForm } from '../../hooks/useForm.js';
 import { toOptions, useLocations, useUsers, useWarehouses } from '../../hooks/useLookups.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { useLiveRefresh } from '../../hooks/useLiveRefresh.js';
 import { Alert, Button, ErrorState, Input, PageHeader, Select, Spinner, StatusBadge, Textarea } from '../../components/ui.jsx';
-import { OPERATION_META, STATUS_FLOW, fmtDate, fmtQty, today } from '../../utils.js';
+import { OPERATION_META, STATUS_FLOW, fmtDate, fmtDateTime, fmtQty, today } from '../../utils.js';
 import { LinesEditor, validateLines } from './LinesEditor.jsx';
+import { PickPanel } from './PickPanel.jsx';
 
 const EMPTY = { warehouseId: '', sourceLocationId: '', destLocationId: '', contact: '', deliveryAddress: '', scheduledDate: today(), responsibleId: '', notes: '', lines: [] };
 
@@ -43,6 +46,10 @@ export default function OperationFormPage({ type }) {
   const [loadError, setLoadError] = useState(null);
   const [acting, setActing] = useState('');
   const [actionError, setActionError] = useState('');
+  const [staleNotice, setStaleNotice] = useState('');
+  const { can } = useAuth();
+  const canManage = can(`${type}.manage`);   // create / edit / cancel
+  const canProcess = can(`${type}.process`); // To Do / Validate
 
   const form = useForm(EMPTY, {
     validate: (v) => {
@@ -63,7 +70,9 @@ export default function OperationFormPage({ type }) {
       const body = { ...v, type, lines: v.lines.map((l) => ({ productId: Number(l.productId), quantity: Number(l.quantity) })) };
       if (type === 'receipt') delete body.sourceLocationId;
       if (type === 'delivery') delete body.destLocationId;
-      const saved = isNew ? await operationApi.create(body) : await operationApi.update(id, body);
+      // expectedUpdatedAt lets the server reject the save if someone else changed the document meanwhile.
+      const saved = isNew ? await operationApi.create(body) : await operationApi.update(id, { ...body, expectedUpdatedAt: op.updatedAt });
+      setStaleNotice('');
       notify(`${saved.reference} saved`);
       setOp(saved);
       form.setValues(fromOperation(saved));
@@ -72,10 +81,23 @@ export default function OperationFormPage({ type }) {
   });
   const { values, set, bind, errors } = form;
 
+  const load = () => operationApi.get(id).then((o) => { setOp(o); form.setValues(fromOperation(o)); setStaleNotice(''); });
   useEffect(() => {
     if (isNew) return;
-    operationApi.get(id).then((o) => { setOp(o); form.setValues(fromOperation(o)); }).catch(setLoadError);
+    load().catch(setLoadError);
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live: another user changed this document, or stock of one of its products moved.
+  // Status, pipeline and availability always refresh; the user's unsaved edits are never overwritten.
+  useLiveRefresh(isNew ? null : ['operations', 'stock'], async (event) => {
+    const latest = await operationApi.get(id).catch(() => null);
+    if (!latest) return;
+    setOp(latest);
+    if (!form.dirty) form.setValues(fromOperation(latest));
+    else if (event.topic === 'operations') setStaleNotice(`${event.actorName ?? 'Someone'} changed this document while you were editing.`);
+  }, {
+    filter: (e) => (e.topic === 'operations' ? e.id === Number(id) : op?.lines?.some((l) => e.productIds?.includes(l.productId))),
+  });
 
   const { data: warehouses } = useWarehouses();
   const { data: users } = useUsers();
@@ -87,11 +109,27 @@ export default function OperationFormPage({ type }) {
     if (isNew && !values.warehouseId && warehouses?.length) set('warehouseId', String(warehouses[0].id));
   }, [warehouses]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Pre-fill from a link, e.g. a reorder suggestion: ?warehouseId=1&productId=3&qty=42
+  const [params] = useSearchParams();
+  useEffect(() => {
+    if (!isNew || !params.get('productId')) return;
+    productApi.get(params.get('productId')).then((p) => {
+      form.setValues({
+        ...EMPTY,
+        warehouseId: params.get('warehouseId') ?? '',
+        contact: params.get('contact') ?? '',
+        lines: [{ productId: String(p.id), sku: p.sku, productName: p.name, quantity: params.get('qty') ?? '' }],
+      });
+    }).catch(() => {});
+  }, [isNew]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loadError) return <ErrorState error={loadError} />;
+  if (isNew && !canManage) return <ErrorState error={{ message: `Only inventory managers can create ${meta.label.toLowerCase()}.` }} />;
   if (!isNew && !op) return <Spinner />;
 
   const status = op?.status ?? 'draft';
-  const editable = !['done', 'canceled'].includes(status);
+  const open = !['done', 'canceled'].includes(status);
+  const editable = open && canManage;
   const locOptions = toOptions(whLocations, 'fullCode');
 
   const act = async (name, fn, message) => {
@@ -104,6 +142,7 @@ export default function OperationFormPage({ type }) {
       notify(message(updated));
     } catch (err) {
       setActionError(err.message);
+      if (err.status === 409) load().catch(() => {}); // someone else acted first: show the real state
     } finally {
       setActing('');
     }
@@ -123,11 +162,13 @@ export default function OperationFormPage({ type }) {
 
       <div className="action-bar no-print">
         {editable && <Button onClick={form.handleSubmit} loading={form.submitting}>Save</Button>}
-        {op && status === 'draft' && <Button variant="secondary" loading={acting === 'confirm'}
+        {op && canProcess && status === 'draft' && <Button variant="secondary" loading={acting === 'confirm'}
           onClick={() => act('confirm', operationApi.confirm, (o) => `${o.reference} is ${o.status}`)}>To Do</Button>}
-        {op && ['ready', 'waiting'].includes(status) && <Button variant="success" loading={acting === 'validate'}
+        {op && canProcess && status === 'waiting' && <Button variant="secondary" loading={acting === 'check'}
+          onClick={() => act('check', operationApi.checkAvailability, (o) => (o.status === 'ready' ? `${o.reference} is ready` : 'Still waiting for stock'))}>Check availability</Button>}
+        {op && canProcess && status === 'ready' && (type !== 'delivery' || op.packedAt) && <Button variant="success" loading={acting === 'validate'}
           onClick={() => act('validate', operationApi.validate, (o) => `${o.reference} validated — stock updated`)}>Validate</Button>}
-        {op && <Button variant="ghost" onClick={() => window.print()}>Print</Button>}
+        {op && status === 'done' && <Button variant="ghost" onClick={() => window.print()}>Print</Button>}
         {op && editable && <Button variant="danger-ghost" loading={acting === 'cancel'}
           onClick={() => window.confirm(`Cancel ${op.reference}?`) && act('cancel', operationApi.cancel, (o) => `${o.reference} canceled`)}>Cancel</Button>}
         <div className="spacer" />
@@ -135,13 +176,29 @@ export default function OperationFormPage({ type }) {
       </div>
 
       <Alert>{actionError || form.formError}</Alert>
-      {type === 'delivery' && shortLines > 0 && editable && (
+      {(staleNotice || form.formError.startsWith('Someone else changed')) && (
+        <div className="alert alert-warn readonly-note no-print">
+          <span>{staleNotice || 'This document was updated by someone else.'} Reload to see the latest version (your unsaved edits will be discarded).</span>
+          <Button variant="ghost" onClick={() => load().then(() => form.setFormError(''))}>Reload</Button>
+        </div>
+      )}
+      {!isNew && open && !canManage && (
+        <Alert tone="info">{meta.label} are planned by inventory managers. {canProcess ? (type === 'delivery' ? 'You can mark it To Do, then pick, pack and validate it.' : 'You can mark it To Do and validate it once the goods are handled.') : ''}</Alert>
+      )}
+      {type === 'delivery' && op && status === 'ready' && (
+        <PickPanel op={op} canProcess={canProcess} onChange={(updated) => { setOp(updated); form.setValues(fromOperation(updated)); }} />
+      )}
+      {type === 'delivery' && op?.packedAt && status === 'done' && (
+        <p className="muted small-print">Packed by {op.packedByName ?? 'unknown'} on {fmtDateTime(op.packedAt)}</p>
+      )}
+      {type === 'delivery' && shortLines > 0 && open && (
         <Alert tone="warn">{shortLines} product line(s) are not fully in stock. The delivery will wait until stock arrives.</Alert>
       )}
 
       <form className="card form-grid" onSubmit={form.handleSubmit} noValidate>
         <Select label="Warehouse" required options={toOptions(warehouses)} placeholder="Select…" disabled={!isNew}
           {...bind('warehouseId')} onChange={(e) => { set('warehouseId', e.target.value); set('sourceLocationId', ''); set('destLocationId', ''); }} />
+        <Input label="Operation type" value={meta.single} disabled readOnly />
         {type !== 'internal' && <Input label={meta.contactLabel} required disabled={!editable} {...bind('contact')} />}
         {type === 'receipt' && <Select label="Destination location" options={locOptions} placeholder="Default stock location" disabled={!editable} {...bind('destLocationId')} />}
         {type !== 'receipt' && <Select label="Source location" required={type === 'internal'} options={locOptions}

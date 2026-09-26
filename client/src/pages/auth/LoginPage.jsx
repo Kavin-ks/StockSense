@@ -15,15 +15,16 @@ export default function LoginPage() {
       ...(!v.password && { password: 'Password is required' }),
     }),
     onSubmit: async (v) => {
-      await login(v);
-      navigate(location.state?.from?.pathname ?? '/', { replace: true });
+      const landingPage = await login(v);
+      // Return to the page that required sign-in, otherwise the user's preferred starting page.
+      navigate(location.state?.from?.pathname ?? landingPage, { replace: true });
     },
   });
 
   return (
     <AuthShell title="Sign in" subtitle="Welcome back. Manage your inventory in one place.">
       <form onSubmit={form.handleSubmit} noValidate className="stack">
-        <Alert>{form.formError}</Alert>
+        <Alert tone={/waiting for approval/i.test(form.formError) ? 'info' : 'error'}>{form.formError}</Alert>
         <Input label="Login ID or Email" autoComplete="username" autoFocus {...form.bind('loginId')} />
         <PasswordInput label="Password" autoComplete="current-password" {...form.bind('password')} />
         <Button type="submit" loading={form.submitting}>Sign in</Button>
