@@ -1,5 +1,5 @@
-﻿import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   ArrowDownToLine,
@@ -12,8 +12,11 @@ import {
   History,
   Warehouse,
   MapPin,
-  LogOut,
+  ChevronDown,
+  User,
   Menu,
+  X,
+  ShieldCheck,
   Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -22,7 +25,7 @@ import { ThemeToggle } from './ThemeToggle.jsx';
 import { LiveIndicator } from './LiveIndicator.jsx';
 import { PendingBadge } from './PendingBadge.jsx';
 
-const NAV = [
+const MOBILE_NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   {
     label: 'Operations',
@@ -37,11 +40,11 @@ const NAV = [
     label: 'Products',
     children: [
       { to: '/products', label: 'Products', icon: Package, end: true },
-      { to: '/stock', label: 'Stock', icon: Boxes },
+      { to: '/stock', label: 'Stock Quants', icon: Boxes },
       { to: '/products/categories', label: 'Categories', icon: Tags },
+      { to: '/moves', label: 'Move History', icon: History },
     ],
   },
-  { to: '/moves', label: 'Move History', icon: History },
   {
     label: 'Settings',
     children: [
@@ -55,24 +58,537 @@ const NAV = [
 export function Layout() {
   const { user, logout, can } = useAuth();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const initials = user?.name?.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+  const location = useLocation();
+
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navRef = useRef(null);
+  const closeTimerRef = useRef(null);
+
+  const pathname = location.pathname;
+
+  // Active state checkers
+  const isOperationsActive = pathname.startsWith('/operations');
+  const isProductsActive =
+    pathname.startsWith('/products') ||
+    pathname.startsWith('/stock') ||
+    pathname.startsWith('/moves');
+  const isSettingsActive = pathname.startsWith('/settings');
+  const isProfileActive = pathname.startsWith('/profile');
+
+  const initials = user?.name
+    ? user.name
+        .split(' ')
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : 'U';
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (navRef.current && !navRef.current.contains(event.target)) {
+        setActiveDropdown(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Close menus when route changes
+  useEffect(() => {
+    setActiveDropdown(null);
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  const handleMouseEnter = (menuName) => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setActiveDropdown(menuName);
+  };
+
+  const handleMouseLeave = () => {
+    closeTimerRef.current = setTimeout(() => {
+      setActiveDropdown(null);
+    }, 180);
+  };
+
+  const toggleDropdown = (menuName) => {
+    setActiveDropdown((prev) => (prev === menuName ? null : menuName));
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
-    <div className={`shell ${open ? 'nav-open' : ''}`}>
-      <aside className="sidebar">
-        <div className="brand">
-          <img src="/logo.svg" alt="" width="28" height="28" /> StockSense
+    <div className="app-shell">
+      {/* ========================================================
+          TOP HORIZONTAL NAVIGATION HEADER
+      ======================================================== */}
+      <header className="top-nav-header" ref={navRef}>
+        <div className="top-nav-inner">
+          {/* Left: Brand */}
+          <div className="top-nav-left">
+            <button
+              type="button"
+              className="top-mobile-toggle"
+              aria-label="Toggle navigation menu"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <Menu size={22} />
+            </button>
+
+            <NavLink to="/" className="top-nav-brand">
+              <img src="/logo.svg" alt="StockSense" width="28" height="28" />
+              <span className="brand-text">StockSense</span>
+            </NavLink>
+          </div>
+
+          {/* Center: Navigation Links & Single-Column Dropdowns */}
+          <nav className="top-nav-menu" aria-label="Main Navigation">
+            {/* 1. Dashboard */}
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `top-nav-link ${isActive ? 'active' : ''}`
+              }
+            >
+              <LayoutDashboard size={16} className="nav-item-icon" />
+              <span>Dashboard</span>
+            </NavLink>
+
+            {/* 2. Operations Dropdown (Single Column - One under another) */}
+            <div
+              className={`top-nav-dropdown-wrap ${
+                activeDropdown === 'operations' ? 'open' : ''
+              }`}
+              onMouseEnter={() => handleMouseEnter('operations')}
+              onMouseLeave={handleMouseLeave}
+            >
+              <button
+                type="button"
+                className={`top-nav-link dropdown-trigger ${
+                  isOperationsActive ? 'active' : ''
+                }`}
+                onClick={() => toggleDropdown('operations')}
+                aria-expanded={activeDropdown === 'operations'}
+              >
+                <ArrowDownToLine size={16} className="nav-item-icon" />
+                <span>Operations</span>
+                <ChevronDown
+                  size={14}
+                  className={`chevron-icon ${
+                    activeDropdown === 'operations' ? 'rotated' : ''
+                  }`}
+                />
+              </button>
+
+              {activeDropdown === 'operations' && (
+                <div className="nav-dropdown-panel">
+                  <div className="dropdown-items-list">
+                    <NavLink
+                      to="/operations/receipts"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box in">
+                        <ArrowDownToLine size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Receipts</div>
+                        <div className="dropdown-item-desc">
+                          Inward vendor deliveries & dock receiving
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/operations/deliveries"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box out">
+                        <Truck size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Deliveries</div>
+                        <div className="dropdown-item-desc">
+                          Outward picking, packing & shipment dispatch
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/operations/transfers"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box transfer">
+                        <ArrowLeftRight size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Internal Transfers</div>
+                        <div className="dropdown-item-desc">
+                          Inter-location relocations & bin replenishments
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/operations/adjustments"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box adjustment">
+                        <Scale size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Adjustments</div>
+                        <div className="dropdown-item-desc">
+                          Physical cycle counts & stock discrepancy fixes
+                        </div>
+                      </div>
+                    </NavLink>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Products Dropdown (Single Column - One under another) */}
+            <div
+              className={`top-nav-dropdown-wrap ${
+                activeDropdown === 'products' ? 'open' : ''
+              }`}
+              onMouseEnter={() => handleMouseEnter('products')}
+              onMouseLeave={handleMouseLeave}
+            >
+              <button
+                type="button"
+                className={`top-nav-link dropdown-trigger ${
+                  isProductsActive ? 'active' : ''
+                }`}
+                onClick={() => toggleDropdown('products')}
+                aria-expanded={activeDropdown === 'products'}
+              >
+                <Package size={16} className="nav-item-icon" />
+                <span>Products</span>
+                <ChevronDown
+                  size={14}
+                  className={`chevron-icon ${
+                    activeDropdown === 'products' ? 'rotated' : ''
+                  }`}
+                />
+              </button>
+
+              {activeDropdown === 'products' && (
+                <div className="nav-dropdown-panel">
+                  <div className="dropdown-items-list">
+                    <NavLink
+                      to="/products"
+                      end
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box product">
+                        <Package size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Products</div>
+                        <div className="dropdown-item-desc">
+                          Master SKU registry, barcodes & reorder rules
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/stock"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box stock">
+                        <Boxes size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Stock Quants</div>
+                        <div className="dropdown-item-desc">
+                          Real-time on-hand balances by storage location
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/products/categories"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box category">
+                        <Tags size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Categories</div>
+                        <div className="dropdown-item-desc">
+                          Product taxonomy, families & classification
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/moves"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box moves">
+                        <History size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Move History</div>
+                        <div className="dropdown-item-desc">
+                          Immutable stock ledger & full movement traceability
+                        </div>
+                      </div>
+                    </NavLink>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Settings Dropdown (Single Column - One under another) */}
+            <div
+              className={`top-nav-dropdown-wrap ${
+                activeDropdown === 'settings' ? 'open' : ''
+              }`}
+              onMouseEnter={() => handleMouseEnter('settings')}
+              onMouseLeave={handleMouseLeave}
+            >
+              <button
+                type="button"
+                className={`top-nav-link dropdown-trigger ${
+                  isSettingsActive ? 'active' : ''
+                }`}
+                onClick={() => toggleDropdown('settings')}
+                aria-expanded={activeDropdown === 'settings'}
+              >
+                <Warehouse size={16} className="nav-item-icon" />
+                <span>Settings</span>
+                <ChevronDown
+                  size={14}
+                  className={`chevron-icon ${
+                    activeDropdown === 'settings' ? 'rotated' : ''
+                  }`}
+                />
+              </button>
+
+              {activeDropdown === 'settings' && (
+                <div className="nav-dropdown-panel">
+                  <div className="dropdown-items-list">
+                    <NavLink
+                      to="/settings/warehouses"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box settings">
+                        <Warehouse size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Warehouses</div>
+                        <div className="dropdown-item-desc">
+                          Physical distribution hubs & facility codes
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/settings/locations"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box settings">
+                        <MapPin size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Locations</div>
+                        <div className="dropdown-item-desc">
+                          Internal storage aisles, zones, shelves & bins
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    {can('users.manage') && (
+                      <NavLink
+                        to="/settings/users"
+                        className={({ isActive }) =>
+                          `dropdown-item-row ${isActive ? 'active' : ''}`
+                        }
+                        onClick={() => setActiveDropdown(null)}
+                      >
+                        <div className="dropdown-icon-box settings">
+                          <Users size={18} />
+                        </div>
+                        <div className="dropdown-item-details">
+                          <div className="dropdown-item-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            Users <PendingBadge />
+                          </div>
+                          <div className="dropdown-item-desc">
+                            Team members, roles & pending approvals
+                          </div>
+                        </div>
+                      </NavLink>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </nav>
+
+          {/* Right Section: Theme Toggle, Notifications & User Profile */}
+          <div className="top-nav-right">
+            <LiveIndicator />
+            <ThemeToggle />
+            <AlertBell />
+
+            {/* User Profile Pill & Dropdown */}
+            <div
+              className={`top-user-wrap ${
+                activeDropdown === 'user' ? 'open' : ''
+              }`}
+              onMouseEnter={() => handleMouseEnter('user')}
+              onMouseLeave={handleMouseLeave}
+            >
+              <button
+                type="button"
+                className={`top-user-pill ${isProfileActive ? 'active' : ''}`}
+                onClick={() => toggleDropdown('user')}
+                aria-expanded={activeDropdown === 'user'}
+              >
+                <span className="top-user-avatar">{initials}</span>
+                <div className="top-user-info-text">
+                  <span className="top-user-name">{user?.name}</span>
+                  <span className="top-user-role">
+                    {user?.role === 'manager' ? 'Manager' : 'Staff'}
+                  </span>
+                </div>
+                <ChevronDown
+                  size={14}
+                  className={`chevron-icon ${
+                    activeDropdown === 'user' ? 'rotated' : ''
+                  }`}
+                />
+              </button>
+
+              {activeDropdown === 'user' && (
+                <div className="user-dropdown-panel">
+                  <div className="user-dropdown-header">
+                    <div className="user-dropdown-avatar">{initials}</div>
+                    <div className="user-dropdown-details">
+                      <strong>{user?.name}</strong>
+                      <small className="muted">{user?.email}</small>
+                      <span className="user-role-badge">
+                        <ShieldCheck size={12} />
+                        {user?.role === 'manager'
+                          ? 'Inventory Manager'
+                          : 'Warehouse Staff'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="user-dropdown-divider" />
+
+                  <NavLink
+                    to="/profile"
+                    className="user-dropdown-item"
+                    onClick={() => setActiveDropdown(null)}
+                  >
+                    <User size={16} />
+                    <span>My Profile & Settings</span>
+                  </NavLink>
+
+                  <div className="user-dropdown-divider" />
+
+                  <button
+                    type="button"
+                    className="user-dropdown-item logout-btn"
+                    onClick={handleLogout}
+                  >
+                    <LogOut size={16} />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <nav onClick={() => setOpen(false)}>
-          {NAV.map((item) =>
+
+      </header>
+
+      {/* ========================================================
+          FULL WIDTH MAIN CONTENT CONTAINER
+      ======================================================== */}
+      <main className="app-main">
+        <div className="content">
+          <Outlet />
+        </div>
+      </main>
+
+      {/* ========================================================
+          MOBILE SIDEBAR DRAWER (Classic Slide-over Sidebar)
+      ======================================================== */}
+      <aside className={`mobile-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+        <div className="mobile-sidebar-head">
+          <div className="brand">
+            <img src="/logo.svg" alt="StockSense" width="28" height="28" />
+            <span className="brand-text">StockSense</span>
+          </div>
+          <button
+            type="button"
+            className="mobile-close-btn"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="mobile-sidebar-nav">
+          {MOBILE_NAV.map((item) =>
             item.children ? (
               <div key={item.label} className="nav-group">
                 <span className="nav-group-title">{item.label}</span>
                 {item.children.filter((c) => !c.permission || can(c.permission)).map((c) => {
                   const Icon = c.icon;
                   return (
-                    <NavLink key={c.to} to={c.to} end={c.end} className="nav-link">
+                    <NavLink
+                      key={c.to}
+                      to={c.to}
+                      end={c.end}
+                      className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
                       {Icon && <Icon size={16} className="nav-icon" />}
                       <span>{c.label}</span>
                       {c.badge && <c.badge />}
@@ -84,7 +600,13 @@ export function Layout() {
               (() => {
                 const Icon = item.icon;
                 return (
-                  <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
                     {Icon && <Icon size={16} className="nav-icon" />}
                     <span>{item.label}</span>
                   </NavLink>
@@ -93,8 +615,13 @@ export function Layout() {
             )
           )}
         </nav>
+
         <div className="profile-menu">
-          <NavLink to="/profile" className="profile-link" onClick={() => setOpen(false)}>
+          <NavLink
+            to="/profile"
+            className={({ isActive }) => `profile-link ${isActive ? 'active' : ''}`}
+            onClick={() => setMobileMenuOpen(false)}
+          >
             <span className="avatar">{initials}</span>
             <span>
               <strong>{user?.name}</strong>
@@ -103,26 +630,24 @@ export function Layout() {
               </small>
             </span>
           </NavLink>
-          <button className="btn btn-ghost full" onClick={() => { logout(); navigate('/login'); }}>
+          <button
+            type="button"
+            className="btn btn-ghost full"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              handleLogout();
+            }}
+          >
             <LogOut size={15} /> Logout
           </button>
         </div>
       </aside>
-      <div className="main">
-        <header className="topbar">
-          <button className="icon-btn menu-btn" aria-label="Toggle menu" onClick={() => setOpen((o) => !o)}>
-            <Menu size={20} />
-          </button>
-          <div className="spacer" />
-          <LiveIndicator />
-          <ThemeToggle />
-          <AlertBell />
-        </header>
-        <main className="content">
-          <Outlet />
-        </main>
-      </div>
-      {open && <div className="nav-scrim" onClick={() => setOpen(false)} />}
+
+      {/* Backdrop Scrim */}
+      <div
+        className={`mobile-scrim ${mobileMenuOpen ? 'open' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
     </div>
   );
 }
