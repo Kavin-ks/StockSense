@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   Lock,
   Save,
-  Check
+  Check,
+  Laptop
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useForm } from '../hooks/useForm.js';
