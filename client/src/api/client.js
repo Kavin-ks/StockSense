@@ -1,0 +1,53 @@
+// Thin fetch wrapper: attaches the JWT, parses JSON, and turns API errors into ApiError
+// with per-field messages that forms can display next to inputs.
+const TOKEN_KEY = 'stocksense.token';
+
+export const tokenStore = {
+  get: () => localStorage.getItem(TOKEN_KEY),
+  set: (t) => localStorage.setItem(TOKEN_KEY, t),
+  clear: () => localStorage.removeItem(TOKEN_KEY),
+};
+
+export class ApiError extends Error {
+  constructor(status, message, fields = {}) {
+    super(message);
+    this.status = status;
+    this.fields = fields;
+  }
+}
+
+let onUnauthorized = () => {};
+export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
+
+function toQuery(params = {}) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') qs.set(k, v);
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+}
+
+async function request(method, path, { body, params } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = tokenStore.get();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(`/api${path}${toQuery(params)}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  } catch {
+    throw new ApiError(0, 'Cannot reach the server. Check your connection and try again.');
+  }
+  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  if (!res.ok) {
+    if (res.status === 401 && token) onUnauthorized();
+    throw new ApiError(res.status, data?.error?.message ?? 'Request failed', data?.error?.fields ?? {});
+  }
+  return data;
+}
+
+export const api = {
+  get: (path, params) => request('GET', path, { params }),
+  post: (path, body) => request('POST', path, { body }),
+  put: (path, body) => request('PUT', path, { body }),
+  del: (path) => request('DELETE', path),
+};
