@@ -1,4 +1,5 @@
 import express from 'express';
+import './config/zod.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import { env } from './config/env.js';
@@ -10,6 +11,8 @@ import { productRouter, categoryRouter } from './modules/products/products.route
 import operationRoutes from './modules/operations/operations.routes.js';
 import moveRoutes from './modules/stock/stock.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import userRoutes from './modules/users/users.routes.js';
+import realtimeRoutes from './modules/realtime/realtime.routes.js';
 
 export function createApp() {
   const app = express();
@@ -21,6 +24,8 @@ export function createApp() {
 
   // Public
   app.use('/api/auth', authRoutes);
+  // Live updates: token endpoint uses the session header, the stream uses a 60s stream token.
+  app.use('/api/events', realtimeRoutes);
 
   // Everything below requires a valid session
   const api = express.Router();
@@ -32,6 +37,7 @@ export function createApp() {
   api.use('/products', productRouter);
   api.use('/operations', operationRoutes);
   api.use('/moves', moveRoutes);
+  api.use('/users', userRoutes);
   app.use('/api', api);
 
   app.use(notFoundHandler);

@@ -14,7 +14,7 @@ export const pagination = {
 };
 
 export const quantity = (label = 'Quantity') =>
-  z.coerce.number({ invalid_type_error: `${label} must be a number` })
+  z.coerce.number({ error: `${label} must be a number` })
     .finite()
     .min(0, `${label} cannot be negative`)
     .max(1e9, `${label} is too large`);

@@ -12,6 +12,13 @@ import { query, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../utils/AppError.js';
 import { moveStock, nextReference, onHand } from '../stock/stock.service.js';
 import { defaultLocationId, resolveScope, virtualLocationId } from '../warehouses/warehouses.service.js';
+import { publish } from '../realtime/realtime.bus.js';
+
+/** Notify every connected client (delivered on COMMIT) that this document changed. */
+async function publishOperation(db, id, action, actor) {
+  const { rows } = await db.query('SELECT id, reference, type, status FROM operations WHERE id = $1', [id]);
+  await publish(db, 'operations', { action, ...rows[0] }, actor);
+}
 
 const OP_COLS = `o.id, o.reference, o.type, o.status, o.warehouse_id AS "warehouseId", w.name AS "warehouseName",
   o.source_location_id AS "sourceLocationId", o.dest_location_id AS "destLocationId",
@@ -19,7 +26,7 @@ const OP_COLS = `o.id, o.reference, o.type, o.status, o.warehouse_id AS "warehou
   COALESCE(dw.short_code || '/' || dl.short_code, dl.name) AS "destLocation",
   o.contact, o.delivery_address AS "deliveryAddress", o.scheduled_date AS "scheduledDate",
   o.responsible_id AS "responsibleId", u.name AS "responsibleName", o.notes,
-  o.validated_at AS "validatedAt", o.created_at AS "createdAt",
+  o.validated_at AS "validatedAt", o.created_at AS "createdAt", o.updated_at AS "updatedAt",
   (o.scheduled_date < CURRENT_DATE AND o.status NOT IN ('done','canceled')) AS "isLate"`;
 
 const OP_FROM = `FROM operations o
@@ -112,7 +119,7 @@ async function writeLines(db, operationId, lines) {
   }
 }
 
-export async function createOperation(d, userId) {
+export async function createOperation(d, actor) {
   return withTransaction(async (db) => {
     const [src, dst] = await resolveLocations(db, d);
     await assertLocations(db, d, src, dst);
@@ -122,11 +129,28 @@ export async function createOperation(d, userId) {
                                delivery_address, scheduled_date, responsible_id, notes, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
       [reference, d.type, d.warehouseId, src, dst, d.contact || null, d.deliveryAddress || null,
-        d.scheduledDate, d.responsibleId ?? userId, d.notes || null, userId],
+        d.scheduledDate, d.responsibleId ?? actor.id, d.notes || null, actor.id],
     );
     await writeLines(db, rows[0].id, d.lines);
+    await publishOperation(db, rows[0].id, 'created', actor);
     return getOperation(rows[0].id, db);
   });
+}
+
+/**
+ * Optimistic concurrency: the client sends the updatedAt it loaded. If someone else
+ * saved in between, refuse instead of silently overwriting their work.
+ */
+function assertNotStale(op, expectedUpdatedAt) {
+  if (expectedUpdatedAt && new Date(expectedUpdatedAt).getTime() !== op.updated_at.getTime()) {
+    throw AppError.conflict('Someone else changed this document while you were editing. Reload to see the latest version.');
+  }
+}
+
+export async function getOperationType(id) {
+  const { rows } = await query('SELECT type FROM operations WHERE id = $1', [id]);
+  if (!rows[0]) throw AppError.notFound('Operation');
+  return rows[0].type;
 }
 
 async function lockOperation(db, id) {
@@ -135,10 +159,11 @@ async function lockOperation(db, id) {
   return rows[0];
 }
 
-export async function updateOperation(id, d) {
+export async function updateOperation(id, d, actor) {
   return withTransaction(async (db) => {
     const op = await lockOperation(db, id);
     if (['done', 'canceled'].includes(op.status)) throw AppError.conflict(`A ${op.status} operation cannot be edited`);
+    assertNotStale(op, d.expectedUpdatedAt);
     if (op.type !== d.type || op.warehouse_id !== d.warehouseId) {
       throw AppError.badRequest('Type and warehouse cannot be changed after creation');
     }
@@ -152,6 +177,7 @@ export async function updateOperation(id, d) {
     await writeLines(db, id, d.lines);
     // Editing a confirmed delivery re-checks availability.
     if (op.type === 'delivery' && op.status !== 'draft') await refreshDeliveryStatus(db, id);
+    await publishOperation(db, id, 'updated', actor);
     return getOperation(id, db);
   });
 }
@@ -171,18 +197,19 @@ async function refreshDeliveryStatus(db, id) {
 }
 
 /** "To Do" button: draft -> ready (deliveries go to waiting if stock is short). */
-export async function confirmOperation(id) {
+export async function confirmOperation(id, actor) {
   return withTransaction(async (db) => {
     const op = await lockOperation(db, id);
     if (op.status !== 'draft') throw AppError.conflict('Only draft operations can be confirmed');
     if (op.type === 'delivery') await refreshDeliveryStatus(db, id);
     else await db.query(`UPDATE operations SET status='ready', updated_at=now() WHERE id=$1`, [id]);
+    await publishOperation(db, id, 'confirmed', actor);
     return getOperation(id, db);
   });
 }
 
 /** "Validate" button: apply every line through the stock engine and mark done. */
-export async function validateOperation(id, userId) {
+export async function validateOperation(id, actor) {
   return withTransaction(async (db) => {
     const op = await lockOperation(db, id);
     if (!['ready', 'waiting'].includes(op.status)) {
@@ -200,19 +227,22 @@ export async function validateOperation(id, userId) {
         reference: op.reference,
         operationId: op.id,
         contact: op.contact,
-        userId,
+        userId: actor.id,
       });
     }
     await db.query(`UPDATE operations SET status='done', validated_at=now(), updated_at=now() WHERE id=$1`, [id]);
+    await publishOperation(db, id, 'validated', actor);
+    await afterStockChange(db, lines.map((l) => l.product_id), actor);
     return getOperation(id, db);
   });
 }
 
-export async function cancelOperation(id) {
+export async function cancelOperation(id, actor) {
   return withTransaction(async (db) => {
     const op = await lockOperation(db, id);
     if (['done', 'canceled'].includes(op.status)) throw AppError.conflict(`Operation is already ${op.status}`);
     await db.query(`UPDATE operations SET status='canceled', updated_at=now() WHERE id=$1`, [id]);
+    await publishOperation(db, id, 'canceled', actor);
     return getOperation(id, db);
   });
 }
@@ -221,7 +251,7 @@ export async function cancelOperation(id) {
  * Inventory adjustment: user enters the physically counted qty per product,
  * the system posts the difference against the virtual "Inventory adjustment" location.
  */
-export async function createAdjustment({ locationId, notes, lines }, userId) {
+export async function createAdjustment({ locationId, notes, lines }, actor) {
   return withTransaction(async (db) => {
     const { rows: loc } = await db.query(`SELECT warehouse_id FROM locations WHERE id=$1 AND type='internal'`, [locationId]);
     if (!loc[0]) throw AppError.badRequest('Invalid location', { locationId: 'Choose a valid location' });
@@ -232,7 +262,7 @@ export async function createAdjustment({ locationId, notes, lines }, userId) {
       `INSERT INTO operations (reference, type, status, warehouse_id, source_location_id, dest_location_id,
                                contact, notes, responsible_id, created_by, validated_at)
        VALUES ($1,'adjustment','done',$2,$3,$4,'Inventory adjustment',$5,$6,$6,now()) RETURNING id`,
-      [reference, loc[0].warehouse_id, adjLoc, locationId, notes || null, userId],
+      [reference, loc[0].warehouse_id, adjLoc, locationId, notes || null, actor.id],
     );
     const opId = rows[0].id;
 
@@ -252,9 +282,41 @@ export async function createAdjustment({ locationId, notes, lines }, userId) {
         reference,
         operationId: opId,
         contact: 'Inventory adjustment',
-        userId,
+        userId: actor.id,
       });
     }
+    await publishOperation(db, opId, 'validated', actor);
+    await afterStockChange(db, lines.map((l) => l.productId), actor);
     return getOperation(opId, db);
   });
+}
+
+/**
+ * Keep open deliveries honest after stock moves (mock-up: "Waiting = waiting for the
+ * out-of-stock product to be in"): waiting -> ready when stock arrives, ready -> waiting
+ * when another document consumed it. Runs inside the caller's transaction.
+ */
+export async function refreshDeliveriesForProducts(db, productIds, actor) {
+  if (!productIds.length) return;
+  const { rows } = await db.query(
+    `SELECT o.id, o.status FROM operations o
+      WHERE o.type = 'delivery' AND o.status IN ('waiting','ready')
+        AND EXISTS (SELECT 1 FROM operation_lines ol WHERE ol.operation_id = o.id AND ol.product_id = ANY($1))
+      ORDER BY o.id FOR UPDATE`,
+    [productIds],
+  );
+  for (const op of rows) {
+    const full = await lockOperation(db, op.id);
+    const next = (await allLinesAvailable(db, full)) ? 'ready' : 'waiting';
+    if (next === op.status) continue;
+    await db.query('UPDATE operations SET status=$1, updated_at=now() WHERE id=$2', [next, op.id]);
+    await publishOperation(db, op.id, next === 'ready' ? 'stock-available' : 'stock-short', actor);
+  }
+}
+
+/** Everything that must happen whenever stock levels change. */
+export async function afterStockChange(db, productIds, actor) {
+  const ids = [...new Set(productIds.map(Number))];
+  await publish(db, 'stock', { productIds: ids }, actor);
+  await refreshDeliveriesForProducts(db, ids, actor);
 }
