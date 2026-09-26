@@ -29,6 +29,20 @@ export const signupSchema = z
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: z.string(),
+    otp: z.string().trim().regex(/^\d{6}$/, 'OTP must be 6 digits').optional(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'Passwords do not match',
+  });
+
+export const signupOtpRequestSchema = z
+  .object({
+    loginId: loginIdSchema,
+    name: z.string().trim().min(2, 'Name must be at least 2 characters').max(120),
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
     path: ['confirmPassword'],
@@ -36,7 +50,7 @@ export const signupSchema = z
   });
 
 export const loginSchema = z.object({
-  loginId: z.string().trim().min(1, 'Login ID is required'),
+  loginId: z.string().trim().min(1, 'Login ID or Email is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
