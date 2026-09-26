@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { productApi } from '../../api/endpoints.js';
+import { Download, ScanLine } from 'lucide-react';
+import { BarcodeScanner } from '../../components/BarcodeScanner.jsx';
+import { productApi, exportApi } from '../../api/endpoints.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { useQueryState } from '../../hooks/useQueryState.js';
 import { FilterBar } from '../../components/FilterBar.jsx';
@@ -18,6 +21,7 @@ export default function ProductListPage({ mode = 'catalog' }) {
   const navigate = useNavigate();
   const { can } = useAuth();
   const [q, setQ] = useQueryState({ page: '1' });
+  const [scannerOpen, setScannerOpen] = useState(false);
   const params = { search: q.search, categoryId: q.categoryId, warehouseId: q.warehouseId, locationId: q.locationId, stockStatus: q.stockStatus, page: q.page };
   // Live: stock moves, product edits and open deliveries (free-to-use) all change these numbers.
   const { data, error, loading, reload } = useFetch(() => productApi.list(params), [JSON.stringify(params)], { live: ['products', 'stock', 'operations'] });
@@ -47,7 +51,15 @@ export default function ProductListPage({ mode = 'catalog' }) {
   return (
     <>
       <PageHeader title={mode === 'stock' ? 'Stock' : 'Products'} subtitle={q.locationId || q.warehouseId ? 'Quantities shown for the selected warehouse / location' : mode === 'stock' ? 'Current stock across all warehouses' : undefined}>
-        {can('products.write') && <Button onClick={() => navigate('/products/new')}>New product</Button>}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <Button variant="outline" onClick={() => setScannerOpen(true)}>
+            <ScanLine size={16} /> Scan
+          </Button>
+          <Button variant="outline" onClick={() => (mode === 'stock' ? exportApi.stock() : exportApi.products())}>
+            <Download size={16} /> Export CSV
+          </Button>
+          {mode !== 'stock' && can('products.write') && <Button onClick={() => navigate('/products/new')}>New product</Button>}
+        </div>
       </PageHeader>
       <FilterBar filters={q} onChange={setQ} fields={['search', 'warehouseId', 'locationId', 'categoryId']} searchPlaceholder="Search by name or SKU">
         <Select placeholder="Any stock level" value={q.stockStatus ?? ''} onChange={(e) => setQ({ stockStatus: e.target.value })} aria-label="Stock level"
@@ -61,6 +73,7 @@ export default function ProductListPage({ mode = 'catalog' }) {
           <Pagination meta={data.meta} onPage={(page) => setQ({ page: String(page) })} />
         </>
       )}
+      <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => setQ({ search: code, page: '1' })} />
     </>
   );
 }

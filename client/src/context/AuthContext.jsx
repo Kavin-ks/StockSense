@@ -10,6 +10,17 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => { tokenStore.clear(); setUser(null); }, []);
 
+  const refreshUser = useCallback(async () => {
+    if (!tokenStore.get()) return null;
+    try {
+      const u = await authApi.me();
+      setUser(u);
+      return u;
+    } catch {
+      logout();
+    }
+  }, [logout]);
+
   useEffect(() => {
     setUnauthorizedHandler(logout);
     if (!tokenStore.get()) return;
@@ -32,10 +43,12 @@ export function AuthProvider({ children }) {
       // Sign-up does not start a session: the account waits for a manager's approval.
       signup: (data) => authApi.signup(data),
       updateProfile: async (data) => setUser(await authApi.updateMe(data)),
+      setUser,
       refresh,
+      refreshUser,
       logout,
     };
-  }, [user, loading, logout, startSession, refresh]);
+  }, [user, loading, logout, startSession, refresh, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

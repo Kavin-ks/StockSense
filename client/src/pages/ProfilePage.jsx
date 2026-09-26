@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   User,
   ShieldCheck,
@@ -17,17 +17,21 @@ import {
   Lock,
   Save,
   Check,
-  Laptop
+  Laptop,
+  Camera,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useForm } from '../hooks/useForm.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { Alert, Button, Input, Select } from '../components/ui.jsx';
 import { EMAIL_RE, fmtDate } from '../utils.js';
-import { warehouseApi } from '../api/endpoints.js';
+import { warehouseApi, authApi } from '../api/endpoints.js';
 
 export default function ProfilePage() {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, setUser, updateProfile, logout } = useAuth();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef(null);
   const notify = useToast();
   const [activeTab, setActiveTab] = useState('general');
   const [warehouses, setWarehouses] = useState([]);
@@ -99,6 +103,43 @@ export default function ProfilePage() {
       .toUpperCase();
   };
 
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      return notify('Please select an image file (PNG, JPG, WebP, GIF)');
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      return notify('Image size must be under 2MB');
+    }
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await authApi.uploadAvatar(formData);
+      if (setUser) setUser((prev) => ({ ...prev, avatarUrl: res.avatarUrl }));
+      notify('Profile photo updated successfully!');
+    } catch (err) {
+      notify(err.message || 'Failed to upload profile photo');
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAvatarDelete = async () => {
+    setUploadingAvatar(true);
+    try {
+      await authApi.deleteAvatar();
+      if (setUser) setUser((prev) => ({ ...prev, avatarUrl: null }));
+      notify('Profile photo removed');
+    } catch (err) {
+      notify(err.message || 'Failed to remove profile photo');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const copyLoginId = () => {
     navigator.clipboard.writeText(user?.loginId || '');
     setCopied(true);
@@ -148,7 +189,45 @@ export default function ProfilePage() {
         <div className="profile-hero-content">
           <div className="profile-header-main">
             <div className="profile-avatar-wrap">
-              <div className="profile-avatar-lg">{getInitials(user?.name)}</div>
+              <div className="profile-avatar-lg" style={{ overflow: 'hidden', position: 'relative' }}>
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  getInitials(user?.name)
+                )}
+                {uploadingAvatar && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'grid', placeItems: 'center', color: '#fff', fontSize: '11px', fontWeight: 600 }}>
+                    ...
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleAvatarChange}
+              />
+              <button
+                type="button"
+                className="avatar-action-btn"
+                title="Upload new photo"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+              >
+                <Camera size={14} />
+              </button>
+              {user?.avatarUrl && (
+                <button
+                  type="button"
+                  className="avatar-action-btn avatar-remove-btn"
+                  title="Remove photo"
+                  onClick={handleAvatarDelete}
+                  disabled={uploadingAvatar}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
               <div className="profile-online-beacon" title="Online & Active Session" />
             </div>
 

@@ -3,3 +3,7 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+server/public/uploads/*
+!server/public/uploads/.gitkeep
+!server/public/uploads/avatars/.gitkeep

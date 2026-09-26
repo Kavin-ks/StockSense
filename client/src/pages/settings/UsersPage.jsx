@@ -51,7 +51,7 @@ function AddUserModal({ onClose, onSaved }) {
   const form = useForm({ loginId: '', name: '', email: '', role: 'staff', password: '', confirmPassword: '' }, {
     // Same rules as self sign-up (which shows a live checklist, so it only flags the password as 'invalid').
     validate: (v) => {
-      const e = validateSignup(v);
+      const e = validateSignup(v, 'form');
       if (e.password === 'invalid') e.password = `Password needs ${passwordProblems(v.password).join(', ')}`;
       return e;
     },

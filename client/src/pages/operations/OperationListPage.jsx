@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { operationApi } from '../../api/endpoints.js';
+import { Download } from 'lucide-react';
+import { operationApi, exportApi } from '../../api/endpoints.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { useQueryState } from '../../hooks/useQueryState.js';
 import { FilterBar } from '../../components/FilterBar.jsx';
@@ -33,7 +34,12 @@ export default function OperationListPage({ type }) {
   return (
     <>
       <PageHeader title={meta.label}>
-        {can(`${type}.manage`) && <Button onClick={() => navigate(`${meta.path}/new`)}>New</Button>}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button variant="outline" onClick={() => exportApi.operations()}>
+            <Download size={16} /> Export CSV
+          </Button>
+          {can(`${type}.manage`) && <Button onClick={() => navigate(`${meta.path}/new`)}>New</Button>}
+        </div>
       </PageHeader>
 
       <FilterBar filters={q} onChange={setQ} fields={['search', 'status', 'warehouseId', 'locationId', 'categoryId']}

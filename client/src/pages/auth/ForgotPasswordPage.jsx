@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
     },
     onSubmit: async (v) => {
       if (step === 'request') {
-        const res = await authApi.forgotPassword({ email: v.email.trim() });
+        const res = await authApi.forgotPassword({ email: v.email.trim().toLowerCase() });
         setInfo(res.message);
         setStep('reset');
         setHasSubmitted(false);
@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
           confirmPassword: v.confirmPassword,
         });
         notify('Password updated. Please sign in.');
-        navigate('/login', { state: { loginId: v.email.trim() } });
+        navigate('/login', { state: { loginId: v.email.trim().toLowerCase() } });
       }
     },
   });
@@ -53,6 +53,24 @@ export default function ForgotPasswordPage() {
       setHasSubmitted(true);
     }
     form.handleSubmit(e);
+  };
+
+  const handleResend = async () => {
+    try {
+      setInfo('Sending new verification code...');
+      const res = await authApi.forgotPassword({ email: form.values.email.trim().toLowerCase() });
+      setInfo(res.message || 'A new verification code has been sent to your email.');
+      form.set('otp', '');
+    } catch (err) {
+      setInfo(err.message || 'Failed to resend code');
+    }
+  };
+
+  const handleEditEmail = () => {
+    setStep('request');
+    setInfo('');
+    setHasSubmitted(false);
+    form.set('otp', '');
   };
 
   const confirmStarted = form.values.confirmPassword.length > 0;
@@ -104,17 +122,24 @@ export default function ForgotPasswordPage() {
         <Button type="submit" loading={form.submitting}>{step === 'request' ? 'Send OTP' : 'Update password'}</Button>
         <div className="auth-links">
           {step === 'reset' && (
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                setStep('request');
-                setInfo('');
-                setHasSubmitted(false);
-              }}
-            >
-              Resend code
-            </button>
+            <>
+              <button
+                type="button"
+                className="link"
+                onClick={handleResend}
+                disabled={form.submitting}
+              >
+                Resend code
+              </button>
+              <button
+                type="button"
+                className="link"
+                onClick={handleEditEmail}
+                disabled={form.submitting}
+              >
+                Change email
+              </button>
+            </>
           )}
           <Link to="/login">Back to sign in</Link>
         </div>
