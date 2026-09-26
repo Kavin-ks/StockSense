@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import {
   User,
   ShieldCheck,
@@ -17,7 +17,9 @@ import {
   Lock,
   Save,
   Check,
-  Laptop
+  Laptop,
+  Camera,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useForm } from '../hooks/useForm.js';
@@ -68,6 +70,48 @@ export default function ProfilePage() {
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
+
+  // Profile picture state (frontend-only, persisted in localStorage)
+  const AVATAR_STORAGE_KEY = 'stocksense_avatar_' + (user?.id || 'default');
+  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+  const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const fileInputRef = useRef(null);
+  const [profilePic, setProfilePic] = useState(() => {
+    try { return localStorage.getItem(AVATAR_STORAGE_KEY) || ''; } catch { return ''; }
+  });
+  const [picError, setPicError] = useState('');
+
+  const handleAvatarSelect = (e) => {
+    setPicError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setPicError('Please select an image file (JPEG, PNG, GIF, or WebP).');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setPicError('Image must be under 2 MB.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      setProfilePic(dataUrl);
+      try { localStorage.setItem(AVATAR_STORAGE_KEY, dataUrl); } catch { /* quota exceeded – still show preview */ }
+      notify('Profile photo updated');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleAvatarRemove = () => {
+    setProfilePic('');
+    setPicError('');
+    try { localStorage.removeItem(AVATAR_STORAGE_KEY); } catch { /* ignore */ }
+    notify('Profile photo removed');
+  };
 
   // Load warehouses for preferences
   useEffect(() => {
@@ -148,7 +192,33 @@ export default function ProfilePage() {
         <div className="profile-hero-content">
           <div className="profile-header-main">
             <div className="profile-avatar-wrap">
-              <div className="profile-avatar-lg">{getInitials(user?.name)}</div>
+              <div
+                className="profile-avatar-lg"
+                onClick={() => fileInputRef.current?.click()}
+                title="Click to change profile photo"
+                style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
+              >
+                {profilePic ? (
+                  <img
+                    src={profilePic}
+                    alt="Profile"
+                    className="profile-avatar-img"
+                  />
+                ) : (
+                  getInitials(user?.name)
+                )}
+                <span className="profile-avatar-overlay">
+                  <Camera size={20} />
+                </span>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleAvatarSelect}
+                style={{ display: 'none' }}
+                aria-label="Upload profile photo"
+              />
               <div className="profile-online-beacon" title="Online & Active Session" />
             </div>
 
@@ -228,6 +298,45 @@ export default function ProfilePage() {
           <div className="section-head">
             <h3>Personal Information</h3>
             <p>Update your identity credentials, contact information, and role assignments.</p>
+          </div>
+
+          {/* Profile Photo Management */}
+          <div className="profile-photo-section">
+            <div className="profile-photo-preview">
+              {profilePic ? (
+                <img src={profilePic} alt="Profile" className="profile-photo-thumb" />
+              ) : (
+                <div className="profile-photo-placeholder">
+                  <Camera size={24} />
+                  <span>No photo</span>
+                </div>
+              )}
+            </div>
+            <div className="profile-photo-controls">
+              <span className="profile-photo-label">Profile Photo</span>
+              <span className="profile-photo-hint">JPEG, PNG, GIF or WebP · Max 2 MB</span>
+              <div className="profile-photo-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ fontSize: '13px', padding: '6px 14px', minHeight: '34px' }}
+                >
+                  <Camera size={14} /> {profilePic ? 'Change Photo' : 'Upload Photo'}
+                </button>
+                {profilePic && (
+                  <button
+                    type="button"
+                    className="btn btn-danger-ghost"
+                    onClick={handleAvatarRemove}
+                    style={{ fontSize: '13px', padding: '6px 14px', minHeight: '34px' }}
+                  >
+                    <Trash2 size={14} /> Remove
+                  </button>
+                )}
+              </div>
+              {picError && <div className="alert alert-error" style={{ marginTop: '8px', fontSize: '12.5px', padding: '6px 12px' }}>{picError}</div>}
+            </div>
           </div>
 
           <form className="form-grid" onSubmit={form.handleSubmit} noValidate>
