@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { AlertBell } from './AlertBell.jsx';
 import { ThemeToggle } from './ThemeToggle.jsx';
 import { LiveIndicator } from './LiveIndicator.jsx';
+import { PendingBadge } from './PendingBadge.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -46,7 +47,7 @@ const NAV = [
     children: [
       { to: '/settings/warehouses', label: 'Warehouses', icon: Warehouse },
       { to: '/settings/locations', label: 'Locations', icon: MapPin },
-      { to: '/settings/users', label: 'Users', icon: Users, permission: 'users.manage' },
+      { to: '/settings/users', label: 'Users', icon: Users, permission: 'users.manage', badge: PendingBadge },
     ],
   },
 ];
@@ -74,6 +75,7 @@ export function Layout() {
                     <NavLink key={c.to} to={c.to} end={c.end} className="nav-link">
                       {Icon && <Icon size={16} className="nav-icon" />}
                       <span>{c.label}</span>
+                      {c.badge && <c.badge />}
                     </NavLink>
                   );
                 })}

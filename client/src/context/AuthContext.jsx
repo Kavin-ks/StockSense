@@ -29,7 +29,8 @@ export function AuthProvider({ children }) {
       /** Same permission names the API enforces (server/src/config/permissions.js). */
       can: (permission) => permissions.has(permission),
       login: async (creds) => startSession(await authApi.login(creds)),
-      signup: async (data) => startSession(await authApi.signup(data)),
+      // Sign-up does not start a session: the account waits for a manager's approval.
+      signup: (data) => authApi.signup(data),
       updateProfile: async (data) => setUser(await authApi.updateMe(data)),
       refresh,
       logout,

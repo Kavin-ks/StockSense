@@ -766,3 +766,10 @@ a.kpi:hover { border-color: var(--primary); text-decoration: none; }
 .input.compact { min-height: 32px; padding: 4px 8px; width: auto; }
 .small-print { font-size: 12.5px; margin: 0; }
 .nowrap { white-space: nowrap; }
+.count-pill { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700; margin-left: auto; }
+.pending-card { border-color: var(--warn); }
+.pending-card h2 { display: flex; align-items: center; gap: 8px; }
+.pending-card h2 .count-pill { margin-left: 0; }
+.pending-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }
+.pending-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border); }
+.pending-list li > div:first-child { flex: 1; min-width: 200px; }

@@ -26,6 +26,9 @@ export function RealtimeProvider({ children }) {
 
   const dispatch = useCallback((event) => {
     const self = me.current;
+    if (event.topic === 'users' && event.action === 'signup' && self?.role === 'manager') {
+      notify(`${event.name} signed up and is waiting for your approval`, 'info');
+    }
     if (event.topic === 'users' && event.id === self?.id && event.actorId !== self?.id) {
       refresh();
       if (event.role && event.role !== self.role) notify(`Your role was changed to ${event.role === 'manager' ? 'Inventory Manager' : 'Warehouse Staff'}`, 'info');

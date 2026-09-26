@@ -5,6 +5,12 @@ import { query } from '../db/pool.js';
 import { AppError } from '../utils/AppError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
+/** Why a non-active account cannot use the app (shown on the login screen). */
+export const STATUS_MESSAGES = {
+  pending: 'Your account is waiting for approval by an inventory manager.',
+  deactivated: 'Your account has been deactivated. Contact your manager.',
+};
+
 export function signToken(user) {
   return jwt.sign({ sub: user.id }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
 }
@@ -28,10 +34,10 @@ export async function userFromToken(token, purpose) {
   }
   if ((payload.purpose ?? null) !== (purpose ?? null)) throw AppError.unauthorized();
 
-  const { rows } = await query('SELECT id, name, role, is_active FROM users WHERE id = $1', [payload.sub]);
+  const { rows } = await query('SELECT id, name, role, status FROM users WHERE id = $1', [payload.sub]);
   const user = rows[0];
   if (!user) throw AppError.unauthorized();
-  if (!user.is_active) throw AppError.unauthorized('Your account has been deactivated. Contact your manager.');
+  if (user.status !== 'active') throw AppError.unauthorized(STATUS_MESSAGES[user.status]);
   return { id: user.id, name: user.name, role: user.role };
 }
 

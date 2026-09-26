@@ -3,13 +3,13 @@ import { randomInt } from 'node:crypto';
 import { query, withTransaction } from '../../db/pool.js';
 import { env } from '../../config/env.js';
 import { AppError } from '../../utils/AppError.js';
-import { signToken } from '../../middleware/auth.js';
+import { STATUS_MESSAGES, signToken } from '../../middleware/auth.js';
 import { permissionsFor } from '../../config/permissions.js';
 import { sendMail } from '../../utils/mailer.js';
 import { publish } from '../realtime/realtime.bus.js';
 
-export const PUBLIC_COLUMNS = `id, login_id AS "loginId", name, email, role, is_active AS "isActive",
-  created_at AS "createdAt"`;
+export const PUBLIC_COLUMNS = `id, login_id AS "loginId", name, email, role, status,
+  created_at AS "createdAt", approved_at AS "approvedAt"`;
 const INVALID_LOGIN = 'Invalid Login Id or Password';
 const INVALID_OTP = () => AppError.badRequest('Invalid or expired OTP', { otp: 'Invalid or expired OTP' });
 // Compared against when the login id is unknown, so timing does not leak account existence.
@@ -34,16 +34,19 @@ export async function assertIdentityAvailable(loginId, email) {
 
 export const hashPassword = (password) => bcrypt.hash(password, 12);
 
-// Public sign-up always creates Warehouse Staff; managers are promoted by a manager
-// or bootstrapped with `npm run create-manager`.
+/**
+ * Public sign-up creates a *pending* Warehouse Staff account: no session is issued
+ * until an inventory manager approves it (Settings -> Users). Managers are notified live.
+ */
 export async function signup({ loginId, name, email, password }) {
   await assertIdentityAvailable(loginId, email);
   const { rows } = await query(
-    `INSERT INTO users (login_id, name, email, password_hash, role) VALUES ($1,$2,$3,$4,'staff')
+    `INSERT INTO users (login_id, name, email, password_hash, role, status) VALUES ($1,$2,$3,$4,'staff','pending')
      RETURNING ${PUBLIC_COLUMNS}`,
     [loginId, name, email, await hashPassword(password)],
   );
-  return { user: withPermissions(rows[0]), token: signToken(rows[0]) };
+  await publish({ query }, 'users', { id: rows[0].id, action: 'signup', name: rows[0].name, status: 'pending' });
+  return { user: rows[0], pending: true, message: STATUS_MESSAGES.pending };
 }
 
 export async function login({ loginId, password }) {
@@ -55,7 +58,7 @@ export async function login({ loginId, password }) {
   const ok = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !ok) throw AppError.unauthorized(INVALID_LOGIN);
   // Only revealed after a correct password, so it does not help account guessing.
-  if (!user.isActive) throw AppError.forbidden('Your account has been deactivated. Contact your manager.');
+  if (user.status !== 'active') throw AppError.forbidden(STATUS_MESSAGES[user.status]);
   delete user.password_hash;
   return { user: withPermissions(user), token: signToken(user) };
 }

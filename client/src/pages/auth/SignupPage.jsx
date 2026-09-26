@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useForm } from '../../hooks/useForm.js';
 import { Alert, Button, Input, PasswordInput } from '../../components/ui.jsx';
@@ -22,12 +22,27 @@ export function validateSignup(v) {
 
 export default function SignupPage() {
   const { signup } = useAuth();
-  const navigate = useNavigate();
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [requested, setRequested] = useState(null); // the pending account, once created
   const form = useForm({ loginId: '', name: '', email: '', password: '', confirmPassword: '' }, {
     validate: validateSignup,
-    onSubmit: async (v) => { await signup(v); navigate('/', { replace: true }); },
+    onSubmit: async (v) => { setRequested((await signup(v)).user); },
   });
+
+  if (requested) {
+    return (
+      <AuthShell title="Request sent" subtitle="Your account is waiting for approval.">
+        <div className="stack">
+          <Alert tone="info">
+            Thanks, {requested.name}. An inventory manager has been notified and needs to approve your account
+            (Login ID <strong>{requested.loginId}</strong>) before you can sign in.
+          </Alert>
+          <p className="muted small-print">Once approved, sign in with the Login ID and password you just chose.</p>
+          <Link className="btn btn-primary" to="/login">Back to sign in</Link>
+        </div>
+      </AuthShell>
+    );
+  }
 
   const handleSubmit = (e) => {
     setHasSubmitted(true);
@@ -77,7 +92,7 @@ export default function SignupPage() {
           )}
         </div>
         <Button type="submit" loading={form.submitting}>Sign up</Button>
-        <p className="muted center small-print">New accounts start as <strong>Warehouse Staff</strong>. A manager can grant manager access.</p>
+        <p className="muted center small-print">New accounts start as <strong>Warehouse Staff</strong> and need an inventory manager's approval before you can sign in.</p>
         <p className="auth-links center">Already have an account? <Link to="/login">Sign in</Link></p>
       </form>
     </AuthShell>
