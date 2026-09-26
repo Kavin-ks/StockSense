@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { operationApi } from '../../api/endpoints.js';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { operationApi, productApi } from '../../api/endpoints.js';
 import { useForm } from '../../hooks/useForm.js';
 import { toOptions, useLocations, useUsers, useWarehouses } from '../../hooks/useLookups.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useLiveRefresh } from '../../hooks/useLiveRefresh.js';
 import { Alert, Button, ErrorState, Input, PageHeader, Select, Spinner, StatusBadge, Textarea } from '../../components/ui.jsx';
-import { OPERATION_META, STATUS_FLOW, fmtDate, fmtQty, today } from '../../utils.js';
+import { OPERATION_META, STATUS_FLOW, fmtDate, fmtDateTime, fmtQty, today } from '../../utils.js';
 import { LinesEditor, validateLines } from './LinesEditor.jsx';
+import { PickPanel } from './PickPanel.jsx';
 
 const EMPTY = { warehouseId: '', sourceLocationId: '', destLocationId: '', contact: '', deliveryAddress: '', scheduledDate: today(), responsibleId: '', notes: '', lines: [] };
 
@@ -108,6 +109,20 @@ export default function OperationFormPage({ type }) {
     if (isNew && !values.warehouseId && warehouses?.length) set('warehouseId', String(warehouses[0].id));
   }, [warehouses]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Pre-fill from a link, e.g. a reorder suggestion: ?warehouseId=1&productId=3&qty=42
+  const [params] = useSearchParams();
+  useEffect(() => {
+    if (!isNew || !params.get('productId')) return;
+    productApi.get(params.get('productId')).then((p) => {
+      form.setValues({
+        ...EMPTY,
+        warehouseId: params.get('warehouseId') ?? '',
+        contact: params.get('contact') ?? '',
+        lines: [{ productId: String(p.id), sku: p.sku, productName: p.name, quantity: params.get('qty') ?? '' }],
+      });
+    }).catch(() => {});
+  }, [isNew]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loadError) return <ErrorState error={loadError} />;
   if (isNew && !canManage) return <ErrorState error={{ message: `Only inventory managers can create ${meta.label.toLowerCase()}.` }} />;
   if (!isNew && !op) return <Spinner />;
@@ -149,7 +164,9 @@ export default function OperationFormPage({ type }) {
         {editable && <Button onClick={form.handleSubmit} loading={form.submitting}>Save</Button>}
         {op && canProcess && status === 'draft' && <Button variant="secondary" loading={acting === 'confirm'}
           onClick={() => act('confirm', operationApi.confirm, (o) => `${o.reference} is ${o.status}`)}>To Do</Button>}
-        {op && canProcess && ['ready', 'waiting'].includes(status) && <Button variant="success" loading={acting === 'validate'}
+        {op && canProcess && status === 'waiting' && <Button variant="secondary" loading={acting === 'check'}
+          onClick={() => act('check', operationApi.checkAvailability, (o) => (o.status === 'ready' ? `${o.reference} is ready` : 'Still waiting for stock'))}>Check availability</Button>}
+        {op && canProcess && status === 'ready' && (type !== 'delivery' || op.packedAt) && <Button variant="success" loading={acting === 'validate'}
           onClick={() => act('validate', operationApi.validate, (o) => `${o.reference} validated — stock updated`)}>Validate</Button>}
         {op && status === 'done' && <Button variant="ghost" onClick={() => window.print()}>Print</Button>}
         {op && editable && <Button variant="danger-ghost" loading={acting === 'cancel'}
@@ -166,7 +183,13 @@ export default function OperationFormPage({ type }) {
         </div>
       )}
       {!isNew && open && !canManage && (
-        <Alert tone="info">{meta.label} are planned by inventory managers. {canProcess ? 'You can mark it To Do and validate it once the goods are handled.' : ''}</Alert>
+        <Alert tone="info">{meta.label} are planned by inventory managers. {canProcess ? (type === 'delivery' ? 'You can mark it To Do, then pick, pack and validate it.' : 'You can mark it To Do and validate it once the goods are handled.') : ''}</Alert>
+      )}
+      {type === 'delivery' && op && status === 'ready' && (
+        <PickPanel op={op} canProcess={canProcess} onChange={(updated) => { setOp(updated); form.setValues(fromOperation(updated)); }} />
+      )}
+      {type === 'delivery' && op?.packedAt && status === 'done' && (
+        <p className="muted small-print">Packed by {op.packedByName ?? 'unknown'} on {fmtDateTime(op.packedAt)}</p>
       )}
       {type === 'delivery' && shortLines > 0 && open && (
         <Alert tone="warn">{shortLines} product line(s) are not fully in stock. The delivery will wait until stock arrives.</Alert>

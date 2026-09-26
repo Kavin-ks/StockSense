@@ -50,7 +50,10 @@ async function seed() {
   await ops.validateOperation(t1.id, actor);
 
   const d1 = await ops.createOperation({ type: 'delivery', warehouseId: main.id, sourceLocationId: rackA.id, contact: 'Azure Interior', deliveryAddress: 'Azure Interior, Anna Nagar', scheduledDate: day(0), lines: [{ productId: steel.id, quantity: 20 }] }, actor);
-  await ops.confirmOperation(d1.id, actor);
+  const d1Ready = await ops.confirmOperation(d1.id, actor);
+  // Deliveries follow pick -> pack -> validate.
+  await ops.pickDelivery(d1.id, { lines: d1Ready.lines.map((l) => ({ lineId: l.id, pickedQty: l.quantity })) }, actor);
+  await ops.packDelivery(d1.id, actor);
   await ops.validateOperation(d1.id, actor);
 
   await ops.createAdjustment({ locationId: rackA.id, notes: '3 kg damaged', lines: [{ productId: steel.id, countedQty: 77 }] }, actor);

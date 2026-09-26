@@ -17,6 +17,7 @@ const ProductListPage = lazy(() => import('./pages/products/ProductListPage.jsx'
 const ProductFormPage = lazy(() => import('./pages/products/ProductFormPage.jsx'));
 const CategoriesPage = lazy(() => import('./pages/products/CategoriesPage.jsx'));
 const MoveHistoryPage = lazy(() => import('./pages/MoveHistoryPage.jsx'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const WarehousesPage = lazy(() => import('./pages/settings/WarehousesPage.jsx'));
 const LocationsPage = lazy(() => import('./pages/settings/LocationsPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="products/:id" element={<ProductFormPage />} />
           <Route path="stock" element={<ProductListPage key="stock" mode="stock" />} />
           <Route path="moves" element={<MoveHistoryPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="settings/warehouses" element={<WarehousesPage />} />
           <Route path="settings/locations" element={<LocationsPage />} />
           <Route path="settings/users" element={<RequirePermission permission="users.manage"><UsersPage /></RequirePermission>} />

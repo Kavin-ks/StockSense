@@ -1,0 +1,43 @@
+# One-command run: docker compose up --build   ->   http://localhost:8080
+# First run with demo data:  docker compose run --rm api node src/db/seed.js
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: stocksense
+      POSTGRES_USER: stocksense
+      POSTGRES_PASSWORD: stocksense
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stocksense -d stocksense"]
+      interval: 3s
+      retries: 20
+
+  api:
+    build: ./server
+    environment:
+      DATABASE_URL: postgres://stocksense:stocksense@db:5432/stocksense
+      JWT_SECRET: ${JWT_SECRET:-change-this-to-a-long-random-string-before-deploying}
+      CLIENT_ORIGIN: http://localhost:8080
+      # Optional SMTP for OTP / digest emails; without it codes are printed in `docker compose logs api`.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+    volumes:
+      - uploads:/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./client
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  db-data:
+  uploads:

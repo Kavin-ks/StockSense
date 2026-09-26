@@ -31,6 +31,7 @@ export const productListQuery = z.object({
   warehouseId: optionalId,
   locationId: optionalId,
   stockStatus: z.enum(['low', 'out', 'in']).optional().or(z.literal('').transform(() => undefined)),
+  archived: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
   ...pagination,
 });
 

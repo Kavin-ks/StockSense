@@ -1,9 +1,10 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, CheckCircle2, X } from 'lucide-react';
 import { dashboardApi } from '../api/endpoints.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { fmtQty } from '../utils.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const READ_ALERTS_KEY = 'stocksense_read_alerts';
 
@@ -29,7 +30,9 @@ export function AlertBell() {
     return !readAlerts.includes(key);
   });
 
-  const count = activeAlerts.length;
+  // "Low-stock reorder triggers" off in My Profile -> keep the list, hide the red badge.
+  const { prefs } = useAuth();
+  const count = prefs?.notifications?.lowStock === false ? 0 : activeAlerts.length;
 
   // Close dropdown on outside click
   useEffect(() => {

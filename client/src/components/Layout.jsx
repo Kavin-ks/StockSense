@@ -10,15 +10,16 @@ import {
   Boxes,
   Tags,
   History,
+  BarChart3,
+  LogOut,
   Warehouse,
   MapPin,
   ChevronDown,
-  LogOut,
   User,
-  Users,
   Menu,
   X,
-  ShieldCheck
+  ShieldCheck,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { AlertBell } from './AlertBell.jsx';
@@ -44,6 +45,7 @@ const MOBILE_NAV = [
       { to: '/stock', label: 'Stock Quants', icon: Boxes },
       { to: '/products/categories', label: 'Categories', icon: Tags },
       { to: '/moves', label: 'Move History', icon: History },
+      { to: '/reports', label: 'Reports & Counts', icon: BarChart3 },
     ],
   },
   {
@@ -73,7 +75,8 @@ export function Layout() {
   const isProductsActive =
     pathname.startsWith('/products') ||
     pathname.startsWith('/stock') ||
-    pathname.startsWith('/moves');
+    pathname.startsWith('/moves') ||
+    pathname.startsWith('/reports');
   const isSettingsActive = pathname.startsWith('/settings');
   const isProfileActive = pathname.startsWith('/profile');
 
@@ -370,6 +373,24 @@ export function Layout() {
                         </div>
                       </div>
                     </NavLink>
+
+                    <NavLink
+                      to="/reports"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box moves">
+                        <BarChart3 size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Reports &amp; Counts</div>
+                        <div className="dropdown-item-desc">
+                          Top movers, days of cover, dead stock & cycle counts
+                        </div>
+                      </div>
+                    </NavLink>
                   </div>
                 </div>
               )}
@@ -452,9 +473,11 @@ export function Layout() {
                           <Users size={18} />
                         </div>
                         <div className="dropdown-item-details">
-                          <div className="dropdown-item-title">Users <PendingBadge /></div>
+                          <div className="dropdown-item-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            Users <PendingBadge />
+                          </div>
                           <div className="dropdown-item-desc">
-                            Approve sign-ups, roles & access
+                            Team members, roles & pending approvals
                           </div>
                         </div>
                       </NavLink>
@@ -481,38 +504,29 @@ export function Layout() {
             >
               <button
                 type="button"
-                className={`top-user-pill ${isProfileActive ? 'active' : ''}`}
+                className={`top-user-pill icon-only ${isProfileActive ? 'active' : ''}`}
                 onClick={() => toggleDropdown('user')}
                 aria-expanded={activeDropdown === 'user'}
+                title={user?.name || 'Account'}
+                aria-label="User profile and settings"
               >
-                <span className="top-user-avatar">{initials}</span>
-                <div className="top-user-info-text">
-                  <span className="top-user-name">{user?.name}</span>
-                  <span className="top-user-role">
-                    {user?.role === 'manager' ? 'Manager' : 'Staff'}
-                  </span>
-                </div>
-                <ChevronDown
-                  size={14}
-                  className={`chevron-icon ${
-                    activeDropdown === 'user' ? 'rotated' : ''
-                  }`}
-                />
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user?.name} className="top-user-avatar-img" />
+                ) : (
+                  <span className="top-user-avatar">{initials}</span>
+                )}
               </button>
 
               {activeDropdown === 'user' && (
                 <div className="user-dropdown-panel">
                   <div className="user-dropdown-header">
-                    <div className="user-dropdown-avatar">{initials}</div>
+                    {user?.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user?.name} className="user-dropdown-avatar-img" />
+                    ) : (
+                      <div className="user-dropdown-avatar">{initials}</div>
+                    )}
                     <div className="user-dropdown-details">
                       <strong>{user?.name}</strong>
-                      <small className="muted">{user?.email}</small>
-                      <span className="user-role-badge">
-                        <ShieldCheck size={12} />
-                        {user?.role === 'manager'
-                          ? 'Inventory Manager'
-                          : 'Warehouse Staff'}
-                      </span>
                     </div>
                   </div>
 
@@ -621,7 +635,7 @@ export function Layout() {
             className={({ isActive }) => `profile-link ${isActive ? 'active' : ''}`}
             onClick={() => setMobileMenuOpen(false)}
           >
-            <span className="avatar">{initials}</span>
+            {user?.avatarUrl ? <img src={user.avatarUrl} alt={user?.name} className="top-user-avatar-img" /> : <span className="avatar">{initials}</span>}
             <span>
               <strong>{user?.name}</strong>
               <small className="muted">

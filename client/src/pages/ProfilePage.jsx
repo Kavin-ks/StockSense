@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   User,
   ShieldCheck,
@@ -17,57 +17,59 @@ import {
   Lock,
   Save,
   Check,
-  Laptop
+  Laptop,
+  Camera,
+  Trash2,
+  Smartphone
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useForm } from '../hooks/useForm.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { Alert, Button, Input, Select } from '../components/ui.jsx';
-import { EMAIL_RE, fmtDate } from '../utils.js';
-import { warehouseApi } from '../api/endpoints.js';
+import { EMAIL_RE, fmtDate, fmtDateTime, passwordProblems, timeAgo } from '../utils.js';
+import { useFetch } from '../hooks/useFetch.js';
+import { warehouseApi, authApi } from '../api/endpoints.js';
+
+/** "Chrome on macOS" from a user-agent string (best effort, no library). */
+function describeDevice(ua = '') {
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : 'unknown OS';
+  return `${browser} on ${os}`;
+}
 
 export default function ProfilePage() {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, setUser, updateProfile, logout, prefs, updatePreferences } = useAuth();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef(null);
   const notify = useToast();
   const [activeTab, setActiveTab] = useState('general');
   const [warehouses, setWarehouses] = useState([]);
   const [copied, setCopied] = useState(false);
 
-  // Preferences state
-  const [prefs, setPrefs] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('stocksense_prefs')) || {
-        defaultWarehouse: '',
-        landingPage: '/dashboard',
-        density: 'comfortable',
-        dateFormat: 'DD/MM/YYYY',
-        numberFormat: 'standard'
-      };
-    } catch {
-      return { defaultWarehouse: '', landingPage: '/dashboard', density: 'comfortable', dateFormat: 'DD/MM/YYYY', numberFormat: 'standard' };
-    }
-  });
+  const notifs = prefs.notifications;
 
-  // Notifications state
-  const [notifs, setNotifs] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('stocksense_notifs')) || {
-        lowStock: true,
-        receipts: true,
-        deliveries: true,
-        adjustments: true,
-        dailyDigest: false
-      };
-    } catch {
-      return { lowStock: true, receipts: true, deliveries: true, adjustments: true, dailyDigest: false };
-    }
-  });
-
-  // Password state
-  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirmPw: '' });
-  const [pwError, setPwError] = useState('');
+  // Password change (server-verified) + real sign-in sessions
   const [pwSuccess, setPwSuccess] = useState('');
-  const [pwLoading, setPwLoading] = useState(false);
+  const sessions = useFetch(() => authApi.sessions(), [activeTab === 'security'], { live: ['users'] });
+  const pwForm = useForm({ currentPassword: '', password: '', confirmPassword: '' }, {
+    validate: (v) => {
+      const e = {};
+      if (!v.currentPassword) e.currentPassword = 'Current password is required';
+      const problems = passwordProblems(v.password);
+      if (problems.length) e.password = `Password needs ${problems.join(', ')}`;
+      if (v.password !== v.confirmPassword) e.confirmPassword = 'Passwords do not match';
+      return e;
+    },
+    onSubmit: async (v) => {
+      setPwSuccess('');
+      const res = await authApi.changePassword(v);
+      pwForm.setValues({ currentPassword: '', password: '', confirmPassword: '' });
+      const others = res.signedOutSessions;
+      setPwSuccess(`Password updated.${others ? ` Signed out ${others} other session(s).` : ''}`);
+      notify('Password changed');
+      sessions.reload();
+    },
+  });
 
   // Load warehouses for preferences
   useEffect(() => {
@@ -76,14 +78,15 @@ export default function ProfilePage() {
 
   // Main profile form
   const form = useForm(
-    { name: user?.name || '', email: user?.email || '', phone: user?.phone || '+1 (555) 234-8901', department: 'Warehouse Operations' },
+    { name: user?.name || '', email: user?.email || '', phone: user?.phone || '', department: user?.department || '' },
     {
       validate: (v) => ({
         ...(v.name.trim().length < 2 && { name: 'Name must be at least 2 characters' }),
         ...(!EMAIL_RE.test(v.email.trim()) && { email: 'Please enter a valid email address' }),
+        ...(v.phone.trim() && !/^\+?[0-9 ()-]{7,}$/.test(v.phone.trim()) && { phone: 'Enter a valid phone number' }),
       }),
       onSubmit: async (v) => {
-        await updateProfile({ name: v.name, email: v.email });
+        await updateProfile({ name: v.name, email: v.email, phone: v.phone, department: v.department });
         notify('Profile changes successfully saved');
       },
     }
@@ -99,6 +102,43 @@ export default function ProfilePage() {
       .toUpperCase();
   };
 
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      return notify('Please select an image file (PNG, JPG, WebP, GIF)');
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      return notify('Image size must be under 2MB');
+    }
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await authApi.uploadAvatar(formData);
+      if (setUser) setUser((prev) => ({ ...prev, avatarUrl: res.avatarUrl }));
+      notify('Profile photo updated successfully!');
+    } catch (err) {
+      notify(err.message || 'Failed to upload profile photo');
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAvatarDelete = async () => {
+    setUploadingAvatar(true);
+    try {
+      await authApi.deleteAvatar();
+      if (setUser) setUser((prev) => ({ ...prev, avatarUrl: null }));
+      notify('Profile photo removed');
+    } catch (err) {
+      notify(err.message || 'Failed to remove profile photo');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const copyLoginId = () => {
     navigator.clipboard.writeText(user?.loginId || '');
     setCopied(true);
@@ -106,38 +146,31 @@ export default function ProfilePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePrefChange = (key, value) => {
-    const updated = { ...prefs, [key]: value };
-    setPrefs(updated);
-    localStorage.setItem('stocksense_prefs', JSON.stringify(updated));
-    notify('Preference saved');
-  };
-
-  const handleNotifToggle = (key) => {
-    const updated = { ...notifs, [key]: !notifs[key] };
-    setNotifs(updated);
-    localStorage.setItem('stocksense_notifs', JSON.stringify(updated));
-    notify('Alert setting updated');
-  };
-
-  const handlePasswordSubmit = (e) => {
-    e.preventDefault();
-    setPwError('');
-    setPwSuccess('');
-    if (!pwForm.current) return setPwError('Current password is required');
-    if (pwForm.newPw.length < 9) return setPwError('New password must be more than 8 characters');
-    if (!/[A-Z]/.test(pwForm.newPw) || !/[a-z]/.test(pwForm.newPw) || !/[^A-Za-z0-9]/.test(pwForm.newPw)) {
-      return setPwError('Password must contain uppercase, lowercase, and a special character');
+  // Saved to the database immediately (user_preferences), applied across the app.
+  const savePref = async (patch, message) => {
+    try {
+      await updatePreferences(patch);
+      notify(message);
+    } catch (err) {
+      notify(err.message, 'error');
     }
-    if (pwForm.newPw !== pwForm.confirmPw) return setPwError('Passwords do not match');
+  };
+  const handlePrefChange = (key, value) => savePref({ [key]: value }, 'Preference saved');
+  const handleNotifToggle = (key) => savePref({ notifications: { [key]: !notifs[key] } }, 'Alert setting updated');
 
-    setPwLoading(true);
-    setTimeout(() => {
-      setPwLoading(false);
-      setPwSuccess('Password has been successfully updated.');
-      setPwForm({ current: '', newPw: '', confirmPw: '' });
-      notify('Security password changed successfully');
-    }, 600);
+  const revokeSession = async (id) => {
+    try {
+      await authApi.revokeSession(id);
+      notify('Session signed out');
+      sessions.reload();
+    } catch (err) {
+      notify(err.message, 'error');
+    }
+  };
+  const revokeOthers = async () => {
+    const { signedOutSessions } = await authApi.revokeOtherSessions();
+    notify(`Signed out ${signedOutSessions} other session(s)`);
+    sessions.reload();
   };
 
   return (
@@ -148,7 +181,45 @@ export default function ProfilePage() {
         <div className="profile-hero-content">
           <div className="profile-header-main">
             <div className="profile-avatar-wrap">
-              <div className="profile-avatar-lg">{getInitials(user?.name)}</div>
+              <div className="profile-avatar-lg" style={{ overflow: 'hidden', position: 'relative' }}>
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  getInitials(user?.name)
+                )}
+                {uploadingAvatar && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'grid', placeItems: 'center', color: '#fff', fontSize: '11px', fontWeight: 600 }}>
+                    ...
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleAvatarChange}
+              />
+              <button
+                type="button"
+                className="avatar-action-btn"
+                title="Upload new photo"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+              >
+                <Camera size={14} />
+              </button>
+              {user?.avatarUrl && (
+                <button
+                  type="button"
+                  className="avatar-action-btn avatar-remove-btn"
+                  title="Remove photo"
+                  onClick={handleAvatarDelete}
+                  disabled={uploadingAvatar}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
               <div className="profile-online-beacon" title="Online & Active Session" />
             </div>
 
@@ -283,10 +354,10 @@ export default function ProfilePage() {
           <div className="form-grid">
             <Select
               label="Primary Assigned Warehouse"
-              value={prefs.defaultWarehouse}
-              onChange={(e) => handlePrefChange('defaultWarehouse', e.target.value)}
+              value={prefs.defaultWarehouseId ? String(prefs.defaultWarehouseId) : ''}
+              onChange={(e) => handlePrefChange('defaultWarehouseId', e.target.value ? Number(e.target.value) : null)}
               placeholder="All Warehouses (Global View)"
-              options={warehouses.map((w) => ({ value: String(w.id), label: `${w.name} (${w.code})` }))}
+              options={warehouses.map((w) => ({ value: String(w.id), label: `${w.name} (${w.shortCode})` }))}
               hint="Pre-filters operations and inventory to your primary hub."
             />
 
@@ -295,7 +366,7 @@ export default function ProfilePage() {
               value={prefs.landingPage}
               onChange={(e) => handlePrefChange('landingPage', e.target.value)}
               options={[
-                { value: '/dashboard', label: 'Dashboard Overview' },
+                { value: '/', label: 'Dashboard Overview' },
                 { value: '/operations/receipts', label: 'Inward Receipts' },
                 { value: '/operations/deliveries', label: 'Outward Deliveries' },
                 { value: '/operations/transfers', label: 'Internal Transfers' },
@@ -433,57 +504,49 @@ export default function ProfilePage() {
             <p>Manage credentials, password complexity, and active session logins.</p>
           </div>
 
-          <form onSubmit={handlePasswordSubmit} className="form-grid narrow">
-            {pwError && <div className="span-all"><Alert>{pwError}</Alert></div>}
+          <form onSubmit={pwForm.handleSubmit} className="form-grid narrow" noValidate>
+            {pwForm.formError && <div className="span-all"><Alert>{pwForm.formError}</Alert></div>}
             {pwSuccess && <div className="span-all"><div className="alert alert-info">{pwSuccess}</div></div>}
 
             <div className="span-all">
-              <Input
-                label="Current Password"
-                type="password"
-                required
-                value={pwForm.current}
-                onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
-              />
+              <Input label="Current Password" type="password" required autoComplete="current-password" {...pwForm.bind('currentPassword')} />
             </div>
-
-            <Input
-              label="New Password"
-              type="password"
-              required
-              value={pwForm.newPw}
-              onChange={(e) => setPwForm({ ...pwForm, newPw: e.target.value })}
-              hint="Must have uppercase, lowercase, special character, 9+ chars."
-            />
-
-            <Input
-              label="Confirm New Password"
-              type="password"
-              required
-              value={pwForm.confirmPw}
-              onChange={(e) => setPwForm({ ...pwForm, confirmPw: e.target.value })}
-            />
-
+            <Input label="New Password" type="password" required autoComplete="new-password"
+              hint="Must have uppercase, lowercase, special character, 9+ chars." {...pwForm.bind('password')} />
+            <Input label="Confirm New Password" type="password" required autoComplete="new-password" {...pwForm.bind('confirmPassword')} />
             <div className="span-all">
-              <Button type="submit" loading={pwLoading}>
+              <Button type="submit" loading={pwForm.submitting}>
                 <KeyRound size={16} /> Update Password
               </Button>
+              {user?.passwordChangedAt && <span className="muted small-print" style={{ marginLeft: 12 }}>Last changed {fmtDate(user.passwordChangedAt)}</span>}
             </div>
           </form>
 
           <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-            <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldCheck size={16} color="#10b981" /> Active Session Details
-            </h4>
-            <div className="card" style={{ background: 'var(--surface-2)', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Laptop size={22} className="muted" />
-                <div>
-                  <strong>Windows PC · Chrome Browser Session</strong>
-                  <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>IP: 127.0.0.1 · Active session</p>
+            <div className="section-head" style={{ marginBottom: 10 }}>
+              <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={16} color="#10b981" /> Active sessions
+              </h4>
+              {sessions.data?.length > 1 && <Button variant="ghost" onClick={revokeOthers}>Sign out other devices</Button>}
+            </div>
+            {sessions.error && <Alert>{sessions.error.message}</Alert>}
+            <div className="stack" style={{ gap: 8 }}>
+              {(sessions.data ?? []).map((sess) => (
+                <div key={sess.id} className="card session-row">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/mobile|android|iphone/i.test(sess.userAgent ?? '') ? <Smartphone size={22} className="muted" /> : <Laptop size={22} className="muted" />}
+                    <div>
+                      <strong>{describeDevice(sess.userAgent)}</strong>
+                      <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>
+                        IP {sess.ip ?? 'unknown'} · signed in {fmtDateTime(sess.createdAt)} · active {timeAgo(sess.lastSeenAt)}
+                      </p>
+                    </div>
+                  </div>
+                  {sess.current
+                    ? <span className="stock-pill stock-in">This device</span>
+                    : <Button variant="danger-ghost" onClick={() => revokeSession(sess.id)}>Sign out</Button>}
                 </div>
-              </div>
-              <span className="stock-pill stock-in">Current</span>
+              ))}
             </div>
           </div>
         </div>

@@ -5,6 +5,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: Number(process.env.PORT) || 5173,
-    proxy: { '/api': 'http://localhost:4000' },
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:4000',
+        changeOrigin: true,
+      },
+      // Uploaded profile photos are served by the API.
+      '/uploads': {
+        target: 'http://127.0.0.1:4000',
+        changeOrigin: true,
+      },
+    },
   },
 });

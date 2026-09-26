@@ -24,6 +24,8 @@ router.post('/:id/reject', validate({ params: idParam }), asyncHandler(async (re
   await service.rejectUser(req.valid.params.id, req.user);
   res.status(204).end();
 }));
+router.delete('/:id', validate({ params: idParam }), asyncHandler(async (req, res) =>
+  res.json(await service.deleteUser(req.valid.params.id, req.user))));
 router.patch('/:id', validate({ params: idParam, body: s.updateUserSchema }), asyncHandler(async (req, res) =>
   res.json(await service.updateUser(req.valid.params.id, req.valid.body, req.user))));
 

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { operationApi } from '../../api/endpoints.js';
+import { Download } from 'lucide-react';
+import { operationApi, exportApi } from '../../api/endpoints.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { useQueryState } from '../../hooks/useQueryState.js';
 import { FilterBar } from '../../components/FilterBar.jsx';
@@ -8,6 +9,14 @@ import { DataTable } from '../../components/DataTable.jsx';
 import { KanbanBoard } from '../../components/KanbanBoard.jsx';
 import { Button, ErrorState, PageHeader, Pagination, Spinner, StatusBadge, ViewToggle } from '../../components/ui.jsx';
 import { OPERATION_META, STATUS_FLOW, fmtDate } from '../../utils.js';
+
+// Empty lists explain what the document is for and what to do next.
+const EMPTY_HINT = {
+  receipt: 'Receipts bring stock in from vendors. Clear the filters, or create one with New.',
+  delivery: 'Deliveries ship stock to customers: To Do, pick, pack, then Validate.',
+  internal: 'Transfers move stock between racks, rooms or warehouses without changing the total.',
+  adjustment: 'Adjustments fix differences between recorded stock and a physical count.',
+};
 
 /** One list page for every operation type (receipts, deliveries, transfers, adjustments). */
 export default function OperationListPage({ type }) {
@@ -33,7 +42,12 @@ export default function OperationListPage({ type }) {
   return (
     <>
       <PageHeader title={meta.label}>
-        {can(`${type}.manage`) && <Button onClick={() => navigate(`${meta.path}/new`)}>New</Button>}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button variant="outline" onClick={() => exportApi.operations()}>
+            <Download size={16} /> Export CSV
+          </Button>
+          {can(`${type}.manage`) && <Button onClick={() => navigate(`${meta.path}/new`)}>New</Button>}
+        </div>
       </PageHeader>
 
       <FilterBar filters={q} onChange={setQ} fields={['search', 'status', 'warehouseId', 'locationId', 'categoryId']}
@@ -56,7 +70,7 @@ export default function OperationListPage({ type }) {
         ) : (
           <>
             <DataTable columns={columns} rows={data.data} onRowClick={open}
-              emptyTitle={`No ${meta.label.toLowerCase()} found`} emptyText="Try changing the filters or create a new one." />
+              emptyTitle={`No ${meta.label.toLowerCase()} found`} emptyText={EMPTY_HINT[type]} />
             <Pagination meta={data.meta} onPage={(page) => setQ({ page: String(page) })} />
           </>
         )

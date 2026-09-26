@@ -9,6 +9,8 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useLiveRefresh } from '../../hooks/useLiveRefresh.js';
 import { Alert, Button, ErrorState, Input, PageHeader, Select, Spinner } from '../../components/ui.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
+import { Archive, ArchiveRestore, ScanLine } from 'lucide-react';
+import { BarcodeScanner } from '../../components/BarcodeScanner.jsx';
 import { fmtQty } from '../../utils.js';
 
 const EMPTY = { name: '', sku: '', categoryId: '', uom: 'Units', unitCost: '0', initialStock: '', initialLocationId: '' };
@@ -73,9 +75,23 @@ export default function ProductFormPage() {
   const [staleNotice, setStaleNotice] = useState('');
   const { can } = useAuth();
   const canWrite = can('products.write');
+
+  // Archive hides the product from pickers and lists; history keeps it. The server refuses while
+  // the product still has stock or is on an open document, and explains why.
+  const toggleArchive = async () => {
+    if (product.isActive && !window.confirm(`Archive ${product.name}? It will no longer be selectable on new documents.`)) return;
+    try {
+      await (product.isActive ? productApi.archive(product.id) : productApi.restore(product.id));
+      notify(`${product.name} ${product.isActive ? 'archived' : 'restored'}`);
+      load();
+    } catch (err) {
+      notify(err.message, 'error');
+    }
+  };
   const { data: categories } = useCategories();
   const { data: uoms } = useFetch(() => productApi.uoms(), []);
   const { data: locations } = useLocations();
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const form = useForm(EMPTY, {
     validate: (v) => validateProduct(v, isNew),
@@ -112,7 +128,12 @@ export default function ProductFormPage() {
 
   return (
     <>
-      <PageHeader title={isNew ? 'New product' : product.name} subtitle={isNew ? undefined : `SKU ${product.sku}`}>
+      <PageHeader title={isNew ? 'New product' : product.name} subtitle={isNew ? undefined : `SKU ${product.sku}${product.isActive ? '' : ' · archived'}`}>
+        {!isNew && canWrite && (product.isActive ? (
+          <Button variant="danger-ghost" onClick={toggleArchive}><Archive size={15} /> Archive</Button>
+        ) : (
+          <Button variant="secondary" onClick={toggleArchive}><ArchiveRestore size={15} /> Restore</Button>
+        ))}
         <Button variant="ghost" onClick={() => navigate('/products')}>Back</Button>
       </PageHeader>
       <Alert>{form.formError}</Alert>
@@ -126,7 +147,14 @@ export default function ProductFormPage() {
       <form className="card form-grid" onSubmit={form.handleSubmit} noValidate>
         <fieldset className="contents" disabled={!canWrite}>
         <Input label="Name" required {...form.bind('name')} />
-        <Input label="SKU / Code" required {...form.bind('sku')} />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <Input label="SKU / Code" required {...form.bind('sku')} />
+          </div>
+          <Button type="button" variant="outline" onClick={() => setScannerOpen(true)} title="Scan Barcode / SKU">
+            <ScanLine size={16} /> Scan
+          </Button>
+        </div>
         <Select label="Category" placeholder="Uncategorised" options={toOptions(categories)} {...form.bind('categoryId')} />
         <Select label="Unit of measure" required options={(uoms ?? ['Units']).map((u) => ({ value: u, label: u }))} {...form.bind('uom')} />
         <Input label="Per unit cost (Rs)" type="number" min="0" step="0.01" {...form.bind('unitCost')} />
@@ -152,6 +180,7 @@ export default function ProductFormPage() {
           <ReorderRules product={product} onChange={setProduct} readOnly={!canWrite} />
         </div>
       )}
+      <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => form.setValues((prev) => ({ ...prev, sku: code }))} />
     </>
   );
 }

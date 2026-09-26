@@ -3,6 +3,7 @@ import { AppError } from '../../utils/AppError.js';
 import { moveStock, nextReference } from '../stock/stock.service.js';
 import { resolveScope, virtualLocationId } from '../warehouses/warehouses.service.js';
 import { publish } from '../realtime/realtime.bus.js';
+import { ARCHIVE_CHECKS, assertArchivable } from '../../utils/archive.js';
 import { afterStockChange } from '../operations/operations.service.js';
 
 /*
@@ -35,7 +36,7 @@ const STOCK_CTE = `
 
 const PRODUCT_COLS = `p.id, p.name, p.sku, p.uom, p.unit_cost AS "unitCost", p.category_id AS "categoryId",
   p.updated_at AS "updatedAt",
-  c.name AS "categoryName",
+  c.name AS "categoryName", p.is_active AS "isActive",
   COALESCE(s.on_hand, 0) AS "onHand",
   COALESCE(s.on_hand, 0) - COALESCE(r.qty, 0) AS "freeToUse",
   ru.min_qty AS "minQty",
@@ -49,11 +50,18 @@ const PRODUCT_FROM = `FROM products p
   LEFT JOIN reserved r  ON r.product_id = p.id
   LEFT JOIN rules ru    ON ru.product_id = p.id`;
 
-export async function listProducts({ search, categoryId, warehouseId, locationId, stockStatus, page, pageSize }) {
+export async function listProducts({ search, categoryId, warehouseId, locationId, stockStatus, archived, page, pageSize }) {
   const scope = await resolveScope({ warehouseId, locationId });
   const params = [scope.warehouseId, scope.locationId];
-  const where = ['p.is_active'];
-  if (search) { params.push(`%${search}%`); where.push(`(p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length})`); }
+  const where = [archived ? 'NOT p.is_active' : 'p.is_active'];
+  let order = 'x.name';
+  if (search) {
+    params.push(`%${search}%`);
+    where.push(`(p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length})`);
+    // An exact SKU (e.g. from the barcode scanner) comes first.
+    params.push(search.toUpperCase());
+    order = `(upper(x.sku) = $${params.length}) DESC, x.name`;
+  }
   if (categoryId) { params.push(categoryId); where.push(`p.category_id = $${params.length}`); }
 
   // stockStatus is derived, so filter on the computed column via a subquery.
@@ -61,7 +69,7 @@ export async function listProducts({ search, categoryId, warehouseId, locationId
   const statusFilter = stockStatus ? `WHERE x."stockStatus" = '${stockStatus}'` : ''; // enum-validated
 
   const [{ rows }, count] = await Promise.all([
-    query(`SELECT * FROM (${inner}) x ${statusFilter} ORDER BY x.name
+    query(`SELECT * FROM (${inner}) x ${statusFilter} ORDER BY ${order}
            LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, pageSize, (page - 1) * pageSize]),
     query(`SELECT count(*)::int AS total FROM (${inner}) x ${statusFilter}`, params),
   ]);
@@ -86,6 +94,7 @@ export async function getProduct(id) {
 }
 
 export async function createProduct(data, actor) {
+  await assertActiveCategory(data.categoryId);
   const id = await withTransaction(async (db) => {
     const { rows } = await db.query(
       `INSERT INTO products (name, sku, category_id, uom, unit_cost) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
@@ -114,6 +123,7 @@ export async function createProduct(data, actor) {
 }
 
 export async function updateProduct(id, data, actor) {
+  await assertActiveCategory(data.categoryId);
   // Optimistic concurrency: only update if nobody saved since the client loaded it.
   // (JSON dates carry milliseconds; Postgres stores microseconds, hence date_trunc.)
   const { rowCount } = await query(
@@ -146,14 +156,42 @@ export async function deleteReorderRule(productId, ruleId, actor) {
   return getProduct(productId);
 }
 
+export async function setProductActive(id, active, actor) {
+  return withTransaction(async (db) => {
+    const { rows } = await db.query('SELECT id, name, sku FROM products WHERE id = $1 FOR UPDATE', [id]);
+    if (!rows[0]) throw AppError.notFound('Product');
+    if (!active) await assertArchivable(db, { label: `[${rows[0].sku}] ${rows[0].name}`, params: [id], ...ARCHIVE_CHECKS.product });
+    await db.query('UPDATE products SET is_active = $1, updated_at = now() WHERE id = $2', [active, id]);
+    await publish(db, 'products', { id, action: active ? 'restored' : 'archived' }, actor);
+    return { id, isActive: active };
+  });
+}
+
+/** New/edited products may only use an active category. */
+async function assertActiveCategory(categoryId) {
+  if (!categoryId) return;
+  const { rowCount } = await query('SELECT 1 FROM product_categories WHERE id = $1 AND is_active', [categoryId]);
+  if (!rowCount) throw AppError.badRequest('Choose an active category', { categoryId: 'This category is archived or does not exist' });
+}
+
 // ---------------------------------------------------------------- categories
-export async function listCategories() {
+export async function listCategories({ includeArchived = false } = {}) {
   const { rows } = await query(
-    `SELECT c.id, c.name, count(p.id)::int AS "productCount"
+    `SELECT c.id, c.name, c.is_active AS "isActive", count(p.id) FILTER (WHERE p.is_active)::int AS "productCount"
        FROM product_categories c LEFT JOIN products p ON p.category_id = c.id
-      GROUP BY c.id ORDER BY c.name`,
+      WHERE $1 OR c.is_active
+      GROUP BY c.id ORDER BY c.is_active DESC, c.name`,
+    [includeArchived],
   );
   return rows;
+}
+
+/** Archiving a category only hides it from pickers; its products keep their category. */
+export async function setCategoryActive(id, active, actor) {
+  const { rowCount } = await query('UPDATE product_categories SET is_active = $1 WHERE id = $2', [active, id]);
+  if (!rowCount) throw AppError.notFound('Category');
+  await publish({ query }, 'categories', { id, action: active ? 'restored' : 'archived' }, actor);
+  return { id, isActive: active };
 }
 
 export async function createCategory({ name }, actor) {

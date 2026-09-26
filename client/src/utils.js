@@ -10,9 +10,41 @@ export function passwordProblems(pw = '') {
   return issues;
 }
 
-export const fmtQty = (n) => Number(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
-export const fmtMoney = (n) => `${Number(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })} Rs`;
-export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+// Display formats follow the signed-in user's preferences (My Profile -> Warehouse defaults).
+// AuthContext calls setFormatPreferences() whenever they load or change.
+const formats = { dateFormat: 'DD/MM/YYYY', numberFormat: 'standard' };
+export function setFormatPreferences(prefs = {}) {
+  if (prefs.dateFormat) formats.dateFormat = prefs.dateFormat;
+  if (prefs.numberFormat) formats.numberFormat = prefs.numberFormat;
+}
+
+const numberLocale = () => (formats.numberFormat === 'european' ? 'de-DE' : 'en-IN');
+export const fmtQty = (n) => Number(n ?? 0).toLocaleString(numberLocale(), { maximumFractionDigits: 3 });
+export const fmtMoney = (n) => `${Number(n ?? 0).toLocaleString(numberLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Rs`;
+
+export function fmtDate(d) {
+  if (!d) return '—';
+  // Plain 'YYYY-MM-DD' strings are calendar dates: read them as local dates, not UTC midnight.
+  const date = typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(`${d}T00:00:00`) : new Date(d);
+  if (Number.isNaN(date.getTime())) return '—';
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  if (formats.dateFormat === 'YYYY-MM-DD') return `${yyyy}-${mm}-${dd}`;
+  if (formats.dateFormat === 'MM/DD/YYYY') return `${mm}/${dd}/${yyyy}`;
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+export const fmtDateTime = (d) => (d ? `${fmtDate(d)} ${new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—');
+
+/** "5 min ago" style relative time for activity feeds. */
+export function timeAgo(d) {
+  const s = Math.round((Date.now() - new Date(d).getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return fmtDate(d);
+}
 export const today = () => new Date().toISOString().slice(0, 10);
 
 export const OPERATION_META = {

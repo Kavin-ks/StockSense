@@ -60,3 +60,10 @@ export const operationListQuery = z.object({
   late: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
   ...pagination,
 });
+
+export const pickSchema = z.object({
+  lines: z.array(z.object({
+    lineId: z.coerce.number().int().positive(),
+    pickedQty: quantity('Picked quantity'),
+  })).min(1, 'Nothing to pick'),
+});
