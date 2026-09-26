@@ -1,5 +1,6 @@
 // Reusable presentational building blocks. Keep them dumb and composable.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { ChevronDown, Check, Search } from 'lucide-react';
 
 export function Field({ label, error, hint, children, required }) {
   return (
@@ -60,14 +61,155 @@ export const Textarea = ({ label, error, hint, ...props }) => (
   </Field>
 );
 
-export const Select = ({ label, error, hint, required, options = [], placeholder, ...props }) => (
-  <Field label={label} error={error} hint={hint} required={required}>
-    <select className="input" aria-invalid={Boolean(error)} {...props}>
-      {placeholder !== undefined && <option value="">{placeholder}</option>}
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  </Field>
-);
+export function Select({
+  label,
+  error,
+  hint,
+  required,
+  options = [],
+  placeholder,
+  value,
+  onChange,
+  disabled = false,
+  className = '',
+  name,
+  id,
+  'aria-label': ariaLabel,
+  ...props
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef(null);
+
+  const strVal = value !== undefined && value !== null ? String(value) : '';
+  const selectedOption = options.find((o) => String(o.value) === strVal);
+  const displayLabel = selectedOption ? selectedOption.label : (placeholder !== undefined ? placeholder : 'Select...');
+  const isPlaceholderSelected = !selectedOption;
+
+  const filteredOptions = search.trim()
+    ? options.filter((o) => String(o.label).toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+        setSearch('');
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('pointerdown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  const handleSelect = (optVal) => {
+    if (disabled) return;
+    setOpen(false);
+    setSearch('');
+    if (onChange) {
+      onChange({
+        target: {
+          name,
+          value: optVal,
+        },
+      });
+    }
+  };
+
+  const content = (
+    <div
+      ref={containerRef}
+      className={`custom-select-wrap ${open ? 'open' : ''} ${disabled ? 'disabled' : ''} ${className}`}
+    >
+      <button
+        type="button"
+        id={id}
+        className={`custom-select-trigger ${isPlaceholderSelected ? 'placeholder' : ''} ${error ? 'has-error' : ''}`}
+        onClick={() => !disabled && setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={ariaLabel || label || placeholder}
+        disabled={disabled}
+      >
+        <span className="custom-select-value">{displayLabel}</span>
+        <ChevronDown size={14} className={`custom-select-chevron ${open ? 'rotated' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="custom-select-dropdown" role="listbox">
+          {options.length > 7 && (
+            <div className="custom-select-search-wrap">
+              <Search size={13} className="custom-select-search-icon" />
+              <input
+                type="text"
+                className="custom-select-search-input"
+                placeholder="Filter options..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                autoFocus
+              />
+            </div>
+          )}
+
+          <div className="custom-select-options-list">
+            {placeholder !== undefined && (
+              <div
+                className={`custom-select-option ${strVal === '' ? 'selected' : ''}`}
+                onClick={() => handleSelect('')}
+                role="option"
+                aria-selected={strVal === ''}
+              >
+                <span className="custom-select-option-text">{placeholder}</span>
+                {strVal === '' && <Check size={14} className="custom-select-check" />}
+              </div>
+            )}
+
+            {filteredOptions.length === 0 ? (
+              <div className="custom-select-empty">No options found</div>
+            ) : (
+              filteredOptions.map((o) => {
+                const isSelected = String(o.value) === strVal;
+                return (
+                  <div
+                    key={String(o.value)}
+                    className={`custom-select-option ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleSelect(o.value)}
+                    role="option"
+                    aria-selected={isSelected}
+                  >
+                    <span className="custom-select-option-text">{o.label}</span>
+                    {isSelected && <Check size={14} className="custom-select-check" />}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (label || error || hint) {
+    return (
+      <Field label={label} error={error} hint={hint} required={required}>
+        {content}
+      </Field>
+    );
+  }
+
+  return content;
+}
 
 export function Button({ variant = 'primary', loading, children, className = '', type = 'button', ...props }) {
   return (

@@ -2998,3 +2998,499 @@ tr.row-selected {
     color: #000000 !important;
   }
 }
+
+
+/* ========================================================
+   CUSTOM LIQUID-GLASS DROPDOWN SELECT STYLES
+======================================================== */
+.custom-select-wrap {
+  position: relative;
+  display: inline-block;
+  min-width: 165px;
+  width: auto;
+}
+
+.field .custom-select-wrap {
+  width: 100%;
+  display: block;
+}
+
+.toolbar .custom-select-wrap {
+  flex-shrink: 0;
+}
+
+.custom-select-trigger {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 13.5px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text, #0f172a);
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
+}
+
+.custom-select-trigger:hover {
+  border-color: var(--primary, #3b82f6);
+  background: var(--bg-hover, #f8fafc);
+}
+
+.custom-select-wrap.open .custom-select-trigger {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  background: var(--bg-card, #ffffff);
+}
+
+[data-theme="dark"] .custom-select-trigger {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .custom-select-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #38bdf8;
+}
+
+[data-theme="dark"] .custom-select-wrap.open .custom-select-trigger {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.custom-select-trigger.placeholder {
+  color: var(--text-muted, #64748b);
+  font-weight: 400;
+}
+
+.custom-select-trigger.has-error {
+  border-color: var(--danger, #ef4444) !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+}
+
+.custom-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-select-chevron {
+  color: var(--text-muted, #94a3b8);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.custom-select-chevron.rotated {
+  transform: rotate(180deg);
+  color: var(--primary, #3b82f6);
+}
+
+[data-theme="dark"] .custom-select-chevron.rotated {
+  color: #38bdf8;
+}
+
+/* --- Dropdown Menu Panel --- */
+.custom-select-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: 320px;
+  z-index: 1100;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.16), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: customSelectFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] .custom-select-dropdown {
+  background: #141b2a;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.7), 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes customSelectFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.custom-select-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  background: var(--bg, #f8fafc);
+}
+
+[data-theme="dark"] .custom-select-search-wrap {
+  background: #0f1420;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.custom-select-search-icon {
+  color: var(--text-muted, #94a3b8);
+  flex-shrink: 0;
+}
+
+.custom-select-search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12.5px;
+  width: 100%;
+  color: var(--text, #0f172a);
+  font-family: inherit;
+}
+
+[data-theme="dark"] .custom-select-search-input {
+  color: #f8fafc;
+}
+
+.custom-select-options-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.custom-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--text, #1e293b);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+[data-theme="dark"] .custom-select-option {
+  color: #e2e8f0;
+}
+
+.custom-select-option:hover {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--text, #0f172a);
+}
+
+[data-theme="dark"] .custom-select-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+.custom-select-option.selected {
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary, #2563eb);
+}
+
+[data-theme="dark"] .custom-select-option.selected {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+.custom-select-check {
+  flex-shrink: 0;
+  color: var(--primary, #2563eb);
+}
+
+[data-theme="dark"] .custom-select-check {
+  color: #38bdf8;
+}
+
+.custom-select-empty {
+  padding: 14px 12px;
+  font-size: 12.5px;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+}
+
+
+/* ========================================================
+   INDUSTRIAL NOTIFICATION ALERT LOGOS & CARDS
+======================================================== */
+.industrial-section-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.industrial-header-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(147, 51, 234, 0.15));
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary, #3b82f6);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="dark"] .industrial-header-badge {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(192, 132, 252, 0.2));
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.industrial-switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.industrial-switch-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.industrial-switch-card:hover {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .industrial-switch-card {
+  background: #141b2a;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .industrial-switch-card:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.1);
+}
+
+/* Industrial Logo Container */
+.industrial-icon-box {
+  width: 50px;
+  height: 50px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.industrial-switch-card:hover .industrial-icon-box {
+  transform: scale(1.05);
+}
+
+/* Hazard Colorway (Red/Amber) */
+.industrial-icon-box.hazard {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(249, 115, 22, 0.18));
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
+  color: #dc2626;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="dark"] .industrial-icon-box.hazard {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(249, 115, 22, 0.2));
+  border: 1.5px solid rgba(248, 113, 113, 0.5);
+  color: #f87171;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.35);
+}
+
+/* Inward Dock Colorway (Cyan/Blue) */
+.industrial-icon-box.inward {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.12), rgba(59, 130, 246, 0.18));
+  border: 1.5px solid rgba(2, 132, 199, 0.35);
+  color: #0284c7;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.15);
+}
+
+[data-theme="dark"] .industrial-icon-box.inward {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(56, 189, 248, 0.2));
+  border: 1.5px solid rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+}
+
+/* Outward Dispatch Colorway (Emerald Green) */
+.industrial-icon-box.outward {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.18));
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+  color: #059669;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.15);
+}
+
+[data-theme="dark"] .industrial-icon-box.outward {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(52, 211, 153, 0.2));
+  border: 1.5px solid rgba(52, 211, 153, 0.5);
+  color: #34d399;
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.35);
+}
+
+/* Physical Count Audit Colorway (Gold Amber) */
+.industrial-icon-box.audit {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(217, 119, 6, 0.18));
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+  color: #d97706;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+}
+
+[data-theme="dark"] .industrial-icon-box.audit {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(251, 191, 36, 0.2));
+  border: 1.5px solid rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.35);
+}
+
+/* Daily Digest Colorway (Purple Violet) */
+.industrial-icon-box.digest {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(124, 58, 237, 0.18));
+  border: 1.5px solid rgba(139, 92, 246, 0.35);
+  color: #7c3aed;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.15);
+}
+
+[data-theme="dark"] .industrial-icon-box.digest {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(168, 85, 247, 0.2));
+  border: 1.5px solid rgba(168, 85, 247, 0.5);
+  color: #c084fc;
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.35);
+}
+
+/* Switch Info & Text */
+.industrial-switch-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.industrial-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.industrial-switch-heading {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text, #0f172a);
+}
+
+[data-theme="dark"] .industrial-switch-heading {
+  color: #f8fafc;
+}
+
+.industrial-switch-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+  line-height: 1.45;
+}
+
+[data-theme="dark"] .industrial-switch-text {
+  color: #94a3b8;
+}
+
+/* Industrial Micro Badges */
+.industrial-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 5px;
+  text-transform: uppercase;
+}
+
+.industrial-badge.hazard {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="dark"] .industrial-badge.hazard {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.industrial-badge.inward {
+  background: rgba(2, 132, 199, 0.12);
+  color: #0284c7;
+  border: 1px solid rgba(2, 132, 199, 0.25);
+}
+
+[data-theme="dark"] .industrial-badge.inward {
+  background: rgba(2, 132, 199, 0.2);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.industrial-badge.outward {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+[data-theme="dark"] .industrial-badge.outward {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.industrial-badge.audit {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="dark"] .industrial-badge.audit {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.industrial-badge.digest {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+[data-theme="dark"] .industrial-badge.digest {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.35);
+}

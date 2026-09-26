@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   User,
+  ShieldAlert,
+  PackageCheck,
+  FileSpreadsheet,
+  BellRing,
   ShieldCheck,
   KeyRound,
   Calendar,
@@ -399,95 +403,142 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Tab 4: Alert Notifications with Industrial Icons */}
+      {/* Tab 4: Alert Notifications with Industrial Styled Badges */}
       {activeTab === 'notifications' && (
-        <div className="profile-section-card">
+        <div className="profile-section-card industrial-alerts-section">
           <div className="section-head">
-            <h3>Alerts & Event Notifications</h3>
-            <p>Control what warehouse activities trigger instant notifications and email digests.</p>
+            <div className="industrial-section-header">
+              <div className="industrial-header-badge">
+                <BellRing size={20} className="industrial-header-icon" />
+              </div>
+              <div>
+                <h3>Alerts & Event Notifications</h3>
+                <p>Industrial event triggers, dock dispatch alerts, and automated stock safety webhooks.</p>
+              </div>
+            </div>
           </div>
 
-          <div className="stack">
-            <div className="switch-row">
-              <div className="switch-label-group">
-                <span className="switch-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertTriangle size={18} color="#ef4444" /> Low-Stock Reorder Triggers
-                </span>
-                <span className="switch-desc">Receive immediate alerts when SKU on-hand reaches minimum safety buffer.</span>
+          <div className="industrial-switch-list">
+            {/* 1. Low-Stock Safety Buffer */}
+            <div className={`industrial-switch-card ${notifs.lowStock ? 'active' : ''}`}>
+              <div className="industrial-icon-box hazard">
+                <ShieldAlert size={24} strokeWidth={2.2} />
+              </div>
+              <div className="industrial-switch-info">
+                <div className="industrial-title-row">
+                  <h4 className="industrial-switch-heading">Low-Stock Reorder Triggers</h4>
+                  <span className="industrial-badge hazard">HAZARD DEFENSE</span>
+                </div>
+                <p className="industrial-switch-text">
+                  Receive immediate telemetry alerts when SKU on-hand reaches or drops below minimum safety buffer.
+                </p>
               </div>
               <label className="toggle-switch">
                 <input
                   type="checkbox"
                   checked={notifs.lowStock}
                   onChange={() => handleNotifToggle('lowStock')}
+                  aria-label="Toggle low-stock alerts"
                 />
                 <span className="toggle-slider" />
               </label>
             </div>
 
-            <div className="switch-row">
-              <div className="switch-label-group">
-                <span className="switch-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ArrowDownToLine size={18} color="#3b82f6" /> Inward Receipt Confirmations
-                </span>
-                <span className="switch-desc">Notify when purchase goods are marked received at dock locations.</span>
+            {/* 2. Inward Receipt Confirmations */}
+            <div className={`industrial-switch-card ${notifs.receipts ? 'active' : ''}`}>
+              <div className="industrial-icon-box inward">
+                <PackageCheck size={24} strokeWidth={2.2} />
+              </div>
+              <div className="industrial-switch-info">
+                <div className="industrial-title-row">
+                  <h4 className="industrial-switch-heading">Inward Receipt Confirmations</h4>
+                  <span className="industrial-badge inward">DOCK RECEIVING</span>
+                </div>
+                <p className="industrial-switch-text">
+                  Notify when purchase vendor goods are checked in and verified at inbound receiving dock locations.
+                </p>
               </div>
               <label className="toggle-switch">
                 <input
                   type="checkbox"
                   checked={notifs.receipts}
                   onChange={() => handleNotifToggle('receipts')}
+                  aria-label="Toggle inward receipt alerts"
                 />
                 <span className="toggle-slider" />
               </label>
             </div>
 
-            <div className="switch-row">
-              <div className="switch-label-group">
-                <span className="switch-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Truck size={18} color="#10b981" /> Outward Delivery Dispatches
-                </span>
-                <span className="switch-desc">Alert when customer shipments are validated and stock leaves the warehouse.</span>
+            {/* 3. Outward Delivery Dispatches */}
+            <div className={`industrial-switch-card ${notifs.deliveries ? 'active' : ''}`}>
+              <div className="industrial-icon-box outward">
+                <Truck size={24} strokeWidth={2.2} />
+              </div>
+              <div className="industrial-switch-info">
+                <div className="industrial-title-row">
+                  <h4 className="industrial-switch-heading">Outward Delivery Dispatches</h4>
+                  <span className="industrial-badge outward">FLEET DISPATCH</span>
+                </div>
+                <p className="industrial-switch-text">
+                  Real-time alerts when customer shipments are validated, packed, and stock departs loading bays.
+                </p>
               </div>
               <label className="toggle-switch">
                 <input
                   type="checkbox"
                   checked={notifs.deliveries}
                   onChange={() => handleNotifToggle('deliveries')}
+                  aria-label="Toggle outward delivery alerts"
                 />
                 <span className="toggle-slider" />
               </label>
             </div>
 
-            <div className="switch-row">
-              <div className="switch-label-group">
-                <span className="switch-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Scale size={18} color="#f59e0b" /> Physical Count Discrepancies
-                </span>
-                <span className="switch-desc">Flag when a cycle count adjustment modifies the verified stock ledger.</span>
+            {/* 4. Physical Count Discrepancies */}
+            <div className={`industrial-switch-card ${notifs.adjustments ? 'active' : ''}`}>
+              <div className="industrial-icon-box audit">
+                <Scale size={24} strokeWidth={2.2} />
+              </div>
+              <div className="industrial-switch-info">
+                <div className="industrial-title-row">
+                  <h4 className="industrial-switch-heading">Physical Count Discrepancies</h4>
+                  <span className="industrial-badge audit">LEDGER AUDIT</span>
+                </div>
+                <p className="industrial-switch-text">
+                  Flag when a cycle count physical inventory adjustment modifies the verified double-entry stock ledger.
+                </p>
               </div>
               <label className="toggle-switch">
                 <input
                   type="checkbox"
                   checked={notifs.adjustments}
                   onChange={() => handleNotifToggle('adjustments')}
+                  aria-label="Toggle count discrepancy alerts"
                 />
                 <span className="toggle-slider" />
               </label>
             </div>
 
-            <div className="switch-row">
-              <div className="switch-label-group">
-                <span className="switch-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Mail size={18} color="#8b5cf6" /> Daily Movement Digest
-                </span>
-                <span className="switch-desc">Receive an end-of-day summary email of all internal stock quants.</span>
+            {/* 5. Daily Movement Digest */}
+            <div className={`industrial-switch-card ${notifs.dailyDigest ? 'active' : ''}`}>
+              <div className="industrial-icon-box digest">
+                <FileSpreadsheet size={24} strokeWidth={2.2} />
+              </div>
+              <div className="industrial-switch-info">
+                <div className="industrial-title-row">
+                  <h4 className="industrial-switch-heading">Daily Movement Telemetry Digest</h4>
+                  <span className="industrial-badge digest">SCHEDULED REPORT</span>
+                </div>
+                <p className="industrial-switch-text">
+                  Receive an automated end-of-day summary email of all internal stock quants, velocities, and valuation.
+                </p>
               </div>
               <label className="toggle-switch">
                 <input
                   type="checkbox"
                   checked={notifs.dailyDigest}
                   onChange={() => handleNotifToggle('dailyDigest')}
+                  aria-label="Toggle daily movement digest"
                 />
                 <span className="toggle-slider" />
               </label>
