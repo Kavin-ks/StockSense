@@ -24,9 +24,19 @@ function OperationCard({ title, stats, verb, path, query, dimmed }) {
         <Link className="btn btn-primary" to={`${path}?${query}`}>{stats.pending} to {verb}</Link>
       </div>
       <div className="op-card-stats">
-        <Link to={`${path}?late=true${q}`} className={stats.late ? 'text-danger' : 'muted'}>{stats.late} Late</Link>
-        {stats.waiting > 0 && <Link to={`${path}?status=waiting${q}`} className="text-warn">{stats.waiting} Waiting</Link>}
-        <span className="muted">{stats.upcoming} Upcoming</span>
+        <div className="op-schedule-counts">
+          <Link to={`${path}?late=true${q}`} className={stats.late ? 'text-danger' : 'muted'} style={{ fontWeight: stats.late ? 600 : 400 }}>
+            {stats.late} Late
+          </Link>
+          <span className="dot-sep">?</span>
+          <span className="muted">{stats.upcoming} Upcoming</span>
+        </div>
+        {stats.waiting > 0 && (
+          <Link to={`${path}?status=waiting${q}`} className="op-waiting-badge">
+            <span className="op-badge-dot" />
+            {stats.waiting} waiting for stock
+          </Link>
+        )}
       </div>
     </div>
   );
