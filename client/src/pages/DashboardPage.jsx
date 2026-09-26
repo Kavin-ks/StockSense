@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Package } from 'lucide-react';
 import { dashboardApi, operationApi, reportsApi } from '../api/endpoints.js';
 import { MovementChart } from '../components/MovementChart.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -19,19 +21,89 @@ function Kpi({ label, value, tone, to, dimmed, compact }) {
 
 function OperationCard({ title, stats, verb, path, query, dimmed }) {
   const q = query ? `&${query}` : '';
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
   return (
     <div className={`card op-card ${dimmed ? 'dimmed' : ''}`}>
       <div className="op-card-head">
-        <h2>{title}</h2>
-        <Link className="btn btn-primary" to={`${path}?${query}`}>{stats.pending} to {verb}</Link>
+        <div>
+          <h2>{title}</h2>
+          <div className="op-card-subtitle">
+            {stats.pending} {stats.pending === 1 ? 'order' : 'orders'} ({stats.totalUnits ?? 0} units total)
+          </div>
+        </div>
+        <Link className="btn btn-primary" to={`${path}?${query}`}>
+          {stats.pending} {stats.pending === 1 ? 'order' : 'orders'} to {verb}
+        </Link>
       </div>
+
       <div className="op-card-stats">
-        <Link to={`${path}?late=true${q}`} className={stats.late ? 'text-danger' : 'muted'}>{stats.late} Late</Link>
-        <span className={stats.today ? '' : 'muted'}>{stats.today} Today</span>
-        {stats.waiting > 0 && <Link to={`${path}?status=waiting${q}`} className="text-warn">{stats.waiting} Waiting</Link>}
-        {/* Mock-up: "operations" = scheduled after today */}
-        <span className="muted">{stats.upcoming} Operations ahead</span>
+        <div className="op-schedule-counts">
+          <Link to={`${path}?late=true${q}`} className={stats.late ? 'text-danger' : 'muted'} style={{ fontWeight: stats.late ? 600 : 400 }}>
+            {stats.late} Late
+          </Link>
+          <span className="dot-sep">·</span>
+          <span className={stats.today ? '' : 'muted'}>{stats.today} Today</span>
+          <span className="dot-sep">·</span>
+          {/* Mock-up: "operations" = scheduled after today */}
+          <span className="muted">{stats.upcoming} Upcoming</span>
+          <span className="op-math-hint">({stats.late} + {stats.today} + {stats.upcoming} = {stats.pending} orders)</span>
+        </div>
+        {stats.waiting > 0 && (
+          <Link to={`${path}?status=waiting${q}`} className="op-waiting-badge">
+            <span className="op-badge-dot" />
+            {stats.waiting} waiting for stock
+          </Link>
+        )}
       </div>
+
+      {stats.orders && stats.orders.length > 0 && (
+        <div className="op-breakdown-section">
+          <button
+            type="button"
+            className="op-toggle-btn"
+            onClick={() => setShowBreakdown((prev) => !prev)}
+            aria-expanded={showBreakdown}
+          >
+            <span>{showBreakdown ? '▾ Hide order & product details' : '▸ Show products & orders breakdown'}</span>
+            <span className="muted" style={{ fontSize: '11px' }}>
+              {stats.orders.length} {stats.orders.length === 1 ? 'shipment' : 'shipments'}
+            </span>
+          </button>
+
+          {showBreakdown && (
+            <div className="op-order-list">
+              {stats.orders.map((order) => (
+                <Link key={order.id} to={`${path}/${order.id}`} className="op-order-item">
+                  <div className="op-order-left">
+                    <div className="op-order-ref-row">
+                      <strong className="op-order-ref">{order.reference}</strong>
+                      {order.contact && <span className="op-order-contact">· {order.contact}</span>}
+                    </div>
+                    <div className="op-order-prod">
+                      <Package size={14} className="op-prod-icon" aria-hidden />
+                      <span>{order.productSummary}</span>
+                    </div>
+                  </div>
+                  <div className="op-order-tags">
+                    {order.isLate ? (
+                      <span className="op-chip chip-late">Late ({fmtDate(order.scheduledDate)})</span>
+                    ) : (
+                      <span className="op-chip chip-upcoming">Due {fmtDate(order.scheduledDate)}</span>
+                    )}
+                    {order.status === 'waiting' && (
+                      <span className="op-chip chip-waiting">Waiting for stock</span>
+                    )}
+                    {order.status === 'ready' && (
+                      <span className="op-chip chip-ready">Ready</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
