@@ -3,6 +3,7 @@ import { productApi } from '../../api/endpoints.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { useQueryState } from '../../hooks/useQueryState.js';
 import { FilterBar } from '../../components/FilterBar.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
 import { Button, ErrorState, PageHeader, Pagination, Select, Spinner } from '../../components/ui.jsx';
 import { fmtMoney, fmtQty } from '../../utils.js';
@@ -15,9 +16,11 @@ const STOCK_LABEL = { in: 'In stock', low: 'Low stock', out: 'Out of stock' };
  */
 export default function ProductListPage({ mode = 'catalog' }) {
   const navigate = useNavigate();
+  const { can } = useAuth();
   const [q, setQ] = useQueryState({ page: '1' });
   const params = { search: q.search, categoryId: q.categoryId, warehouseId: q.warehouseId, locationId: q.locationId, stockStatus: q.stockStatus, page: q.page };
-  const { data, error, loading, reload } = useFetch(() => productApi.list(params), [JSON.stringify(params)]);
+  // Live: stock moves, product edits and open deliveries (free-to-use) all change these numbers.
+  const { data, error, loading, reload } = useFetch(() => productApi.list(params), [JSON.stringify(params)], { live: ['products', 'stock', 'operations'] });
 
   const stockCell = (p) => <span className={`stock-pill stock-${p.stockStatus}`}>{STOCK_LABEL[p.stockStatus]}</span>;
   const columns = mode === 'stock' ? [
@@ -26,8 +29,11 @@ export default function ProductListPage({ mode = 'catalog' }) {
     { key: 'onHand', header: 'On hand', align: 'right', render: (p) => `${fmtQty(p.onHand)} ${p.uom}` },
     { key: 'freeToUse', header: 'Free to use', align: 'right', render: (p) => fmtQty(p.freeToUse) },
     { key: 'stockStatus', header: 'Status', render: stockCell },
-    { key: 'act', header: '', align: 'right', render: () => (
-      <Button variant="ghost" onClick={(e) => { e.stopPropagation(); navigate('/operations/adjustments/new'); }}>Update</Button>
+    { key: 'act', header: '', align: 'right', render: (p) => can('adjustment.manage') && (
+      <Button variant="ghost" onClick={(e) => {
+        e.stopPropagation();
+        navigate(`/operations/adjustments/new?productId=${p.id}${q.locationId ? `&locationId=${q.locationId}` : ''}`);
+      }}>Update</Button>
     ) },
   ] : [
     { key: 'sku', header: 'SKU', render: (p) => <code>{p.sku}</code> },
@@ -41,7 +47,7 @@ export default function ProductListPage({ mode = 'catalog' }) {
   return (
     <>
       <PageHeader title={mode === 'stock' ? 'Stock' : 'Products'} subtitle={q.locationId || q.warehouseId ? 'Quantities shown for the selected warehouse / location' : mode === 'stock' ? 'Current stock across all warehouses' : undefined}>
-        <Button onClick={() => navigate('/products/new')}>New product</Button>
+        {can('products.write') && <Button onClick={() => navigate('/products/new')}>New product</Button>}
       </PageHeader>
       <FilterBar filters={q} onChange={setQ} fields={['search', 'warehouseId', 'locationId', 'categoryId']} searchPlaceholder="Search by name or SKU">
         <Select placeholder="Any stock level" value={q.stockStatus ?? ''} onChange={(e) => setQ({ stockStatus: e.target.value })} aria-label="Stock level"

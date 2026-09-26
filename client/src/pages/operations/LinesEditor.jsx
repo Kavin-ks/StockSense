@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import { productApi } from '../../api/endpoints.js';
+import { useFetch } from '../../hooks/useFetch.js';
 import { Button } from '../../components/ui.jsx';
 import { fmtQty } from '../../utils.js';
 
@@ -9,8 +9,9 @@ import { fmtQty } from '../../utils.js';
  * `lineInfo(line)` returns optional extra info / warnings per line (e.g. availability).
  */
 export function LinesEditor({ lines, onChange, readOnly, error, qtyKey = 'quantity', qtyLabel = 'Quantity', lineInfo }) {
-  const [products, setProducts] = useState([]);
-  useEffect(() => { productApi.list({ pageSize: 100 }).then((r) => setProducts(r.data)).catch(() => {}); }, []);
+  // Live, so a product a manager just created is immediately pickable by everyone.
+  const { data } = useFetch(() => productApi.list({ pageSize: 100 }), [], { live: ['products'] });
+  const products = data?.data ?? [];
 
   const update = (i, patch) => onChange(lines.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const remove = (i) => onChange(lines.filter((_, idx) => idx !== i));

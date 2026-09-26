@@ -4,6 +4,7 @@ import { toOptions, useLocations, useWarehouses } from '../../hooks/useLookups.j
 import { useQueryState } from '../../hooks/useQueryState.js';
 import { useForm } from '../../hooks/useForm.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
 import { Alert, Button, ErrorState, Input, Modal, PageHeader, Select, Spinner } from '../../components/ui.jsx';
 
@@ -45,15 +46,16 @@ export default function LocationsPage() {
   const { data: warehouses } = useWarehouses();
   const { data, error, loading, reload } = useLocations(q.warehouseId);
   const [editing, setEditing] = useState(undefined);
+  const canWrite = useAuth().can('settings.write');
   return (
     <>
       <PageHeader title="Locations" subtitle="Racks, rooms and zones inside each warehouse">
         <Select placeholder="All warehouses" value={q.warehouseId ?? ''} options={toOptions(warehouses)} onChange={(e) => setQ({ warehouseId: e.target.value })} aria-label="Warehouse" />
-        <Button onClick={() => setEditing(null)}>New location</Button>
+        {canWrite && <Button onClick={() => setEditing(null)}>New location</Button>}
       </PageHeader>
       {error && <ErrorState error={error} onRetry={reload} />}
       {loading && !data ? <Spinner /> : (
-        <DataTable rows={data} onRowClick={setEditing} emptyTitle="No locations yet" columns={[
+        <DataTable rows={data} onRowClick={canWrite ? setEditing : undefined} emptyTitle="No locations yet" columns={[
           { key: 'fullCode', header: 'Code', render: (l) => <code>{l.fullCode}</code> },
           { key: 'name', header: 'Name' },
           { key: 'warehouseName', header: 'Warehouse' },

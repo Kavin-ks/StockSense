@@ -77,6 +77,7 @@ export default function SignupPage() {
           )}
         </div>
         <Button type="submit" loading={form.submitting}>Sign up</Button>
+        <p className="muted center small-print">New accounts start as <strong>Warehouse Staff</strong>. A manager can grant manager access.</p>
         <p className="auth-links center">Already have an account? <Link to="/login">Sign in</Link></p>
       </form>
     </AuthShell>

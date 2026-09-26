@@ -13,11 +13,13 @@ import {
   Warehouse,
   MapPin,
   LogOut,
-  Menu
+  Menu,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { AlertBell } from './AlertBell.jsx';
 import { ThemeToggle } from './ThemeToggle.jsx';
+import { LiveIndicator } from './LiveIndicator.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -44,12 +46,13 @@ const NAV = [
     children: [
       { to: '/settings/warehouses', label: 'Warehouses', icon: Warehouse },
       { to: '/settings/locations', label: 'Locations', icon: MapPin },
+      { to: '/settings/users', label: 'Users', icon: Users, permission: 'users.manage' },
     ],
   },
 ];
 
 export function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const initials = user?.name?.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
@@ -65,7 +68,7 @@ export function Layout() {
             item.children ? (
               <div key={item.label} className="nav-group">
                 <span className="nav-group-title">{item.label}</span>
-                {item.children.map((c) => {
+                {item.children.filter((c) => !c.permission || can(c.permission)).map((c) => {
                   const Icon = c.icon;
                   return (
                     <NavLink key={c.to} to={c.to} end={c.end} className="nav-link">
@@ -93,7 +96,9 @@ export function Layout() {
             <span className="avatar">{initials}</span>
             <span>
               <strong>{user?.name}</strong>
-              <small className="muted">My Profile</small>
+              <small className="muted">
+                <span className={`role-badge role-${user?.role}`}>{user?.role === 'manager' ? 'Manager' : 'Staff'}</span> My Profile
+              </small>
             </span>
           </NavLink>
           <button className="btn btn-ghost full" onClick={() => { logout(); navigate('/login'); }}>
@@ -107,6 +112,7 @@ export function Layout() {
             <Menu size={20} />
           </button>
           <div className="spacer" />
+          <LiveIndicator />
           <ThemeToggle />
           <AlertBell />
         </header>
