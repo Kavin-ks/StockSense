@@ -1,5 +1,6 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Bell } from 'lucide-react';
 import { dashboardApi } from '../api/endpoints.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { fmtQty } from '../utils.js';
@@ -12,7 +13,8 @@ export function AlertBell() {
   return (
     <div className="bell-wrap">
       <button className="icon-btn bell" aria-label={`${count} low stock alerts`} onClick={() => setOpen((o) => !o)}>
-        🔔{count > 0 && <span className="bell-count">{count}</span>}
+        <Bell size={18} />
+        {count > 0 && <span className="bell-count">{count}</span>}
       </button>
       {open && (
         <div className="dropdown" onMouseLeave={() => setOpen(false)}>
