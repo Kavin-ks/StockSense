@@ -7,7 +7,7 @@ export function AuthShell({ title, subtitle, children }) {
         <ThemeToggle />
       </div>
       <div className="auth-card">
-        <div className="brand center"><img src="/logo.svg" alt="" width="40" height="40" /><span>StockSense</span></div>
+        <div className="brand center"><img src="/logo.png" alt="StockSense" className="auth-logo" width="44" height="44" /><span>StockSense</span></div>
         <h1>{title}</h1>
         {subtitle && <p className="muted">{subtitle}</p>}
         {children}

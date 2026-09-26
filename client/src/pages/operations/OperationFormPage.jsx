@@ -1,3 +1,6 @@
+import { Breadcrumbs } from '../../components/Breadcrumbs.jsx';
+import { ConfirmModal } from '../../components/ConfirmModal.jsx';
+import { Printer } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { operationApi, productApi } from '../../api/endpoints.js';
@@ -47,6 +50,7 @@ export default function OperationFormPage({ type }) {
   const [acting, setActing] = useState('');
   const [actionError, setActionError] = useState('');
   const [staleNotice, setStaleNotice] = useState('');
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const { can } = useAuth();
   const canManage = can(`${type}.manage`);   // create / edit / cancel
   const canProcess = can(`${type}.process`); // To Do / Validate
@@ -156,6 +160,15 @@ export default function OperationFormPage({ type }) {
 
   return (
     <div className="print-area">
+      <div className="no-print">
+        <Breadcrumbs
+          items={[
+            { label: 'Operations' },
+            { label: meta.label, to: meta.path },
+            { label: isNew ? `New ${meta.single}` : (op?.reference || 'Document') },
+          ]}
+        />
+      </div>
       <PageHeader title={isNew ? `New ${meta.single}` : op.reference} subtitle={meta.label}>
         {!isNew && <StatusPipeline type={type} status={status} />}
       </PageHeader>
@@ -168,9 +181,20 @@ export default function OperationFormPage({ type }) {
           onClick={() => act('check', operationApi.checkAvailability, (o) => (o.status === 'ready' ? `${o.reference} is ready` : 'Still waiting for stock'))}>Check availability</Button>}
         {op && canProcess && status === 'ready' && (type !== 'delivery' || op.packedAt) && <Button variant="success" loading={acting === 'validate'}
           onClick={() => act('validate', operationApi.validate, (o) => `${o.reference} validated — stock updated`)}>Validate</Button>}
-        {op && status === 'done' && <Button variant="ghost" onClick={() => window.print()}>Print</Button>}
-        {op && editable && <Button variant="danger-ghost" loading={acting === 'cancel'}
-          onClick={() => window.confirm(`Cancel ${op.reference}?`) && act('cancel', operationApi.cancel, (o) => `${o.reference} canceled`)}>Cancel</Button>}
+        {op && (
+          <Button variant="secondary" onClick={() => window.print()} title="Print document or packing slip">
+            <Printer size={15} /> Print Slip
+          </Button>
+        )}
+        {op && editable && (
+          <Button
+            variant="danger-ghost"
+            loading={acting === 'cancel'}
+            onClick={() => setCancelModalOpen(true)}
+          >
+            Cancel
+          </Button>
+        )}
         <div className="spacer" />
         <Button variant="ghost" onClick={() => navigate(meta.path)}>Back to list</Button>
       </div>

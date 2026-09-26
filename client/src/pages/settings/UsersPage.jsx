@@ -1,3 +1,5 @@
+import { Breadcrumbs } from '../../components/Breadcrumbs.jsx';
+import { ConfirmModal } from '../../components/ConfirmModal.jsx';
 import { useState } from 'react';
 import { Trash2, UserCheck, UserX } from 'lucide-react';
 import { userApi } from '../../api/endpoints.js';
@@ -84,6 +86,7 @@ function PendingRequests({ onChange }) {
   const { data, reload } = useFetch(() => userApi.list({ status: 'pending', pageSize: 50 }), [], { live: ['users'] });
   const [roles, setRoles] = useState({});
   const { busy, run } = useUserAction(() => { reload(); onChange(); });
+  const [rejectUser, setRejectUser] = useState(null);
   const pending = data?.data ?? [];
   if (!pending.length) return null;
 
@@ -109,14 +112,29 @@ function PendingRequests({ onChange }) {
                 <UserCheck size={15} /> Approve
               </Button>
               <Button variant="danger-ghost" loading={busy === `r${u.id}`} disabled={Boolean(busy)}
-                onClick={() => window.confirm(`Reject ${u.name}'s sign-up? Their request will be removed.`)
-                  && run(`r${u.id}`, () => userApi.reject(u.id), `${u.name}'s sign-up rejected`)}>
+                onClick={() => setRejectUser(u)}>
                 <UserX size={15} /> Reject
               </Button>
             </li>
           );
         })}
       </ul>
+
+      <ConfirmModal
+        open={Boolean(rejectUser)}
+        title={`Reject ${rejectUser?.name}'s sign-up?`}
+        message={`Are you sure you want to reject the sign-up request from ${rejectUser?.name} (${rejectUser?.email})? Their pending account request will be removed.`}
+        confirmLabel="Reject Request"
+        cancelLabel="Keep Reviewing"
+        variant="danger"
+        loading={busy === `r${rejectUser?.id}`}
+        onConfirm={async () => {
+          const u = rejectUser;
+          setRejectUser(null);
+          await run(`r${u.id}`, () => userApi.reject(u.id), `${u.name}'s sign-up rejected`);
+        }}
+        onClose={() => setRejectUser(null)}
+      />
     </section>
   );
 }
@@ -129,6 +147,8 @@ export default function UsersPage() {
   const params = { search: q.search, role: q.role, status: q.status, page: q.page };
   const { data, error, loading, reload } = useFetch(() => userApi.list(params), [JSON.stringify(params)], { live: ['users'] });
   const { busy, run } = useUserAction(reload);
+  const [deactModal, setDeactModal] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null);
 
   const columns = [
     { key: 'name', header: 'Name', render: (u) => <><strong>{u.name}</strong>{u.id === me.id && <span className="muted"> (you)</span>}</> },
@@ -150,15 +170,17 @@ export default function UsersPage() {
       return (
         <div className="row-actions">
           <Button variant="ghost" loading={busy === u.id}
-            onClick={() => (!active || window.confirm(`Deactivate ${u.name}? They will be signed out immediately.`))
-              && run(u.id, () => userApi.update(u.id, { status: active ? 'deactivated' : 'active' }), `${u.name} ${active ? 'deactivated' : 're-activated'}`)}>
+            onClick={() => {
+              if (active) {
+                setDeactModal(u);
+              } else {
+                run(u.id, () => userApi.update(u.id, { status: 'active' }), `${u.name} re-activated`);
+              }
+            }}>
             {active ? 'Deactivate' : 'Re-activate'}
           </Button>
           <Button variant="danger-ghost" aria-label={`Delete ${u.name}`} disabled={Boolean(busy)}
-            onClick={() => window.confirm(
-              `Delete ${u.name}?\n\nTheir login is removed and they are signed out everywhere. `
-              + 'Documents and stock moves they made keep their name for the audit trail. This cannot be undone.',
-            ) && run(`d${u.id}`, () => userApi.remove(u.id), `${u.name} was deleted`)}>
+            onClick={() => setDeleteModal(u)}>
             <Trash2 size={15} /> Delete
           </Button>
         </div>
@@ -168,6 +190,7 @@ export default function UsersPage() {
 
   return (
     <>
+      <Breadcrumbs items={[{ label: 'Settings' }, { label: 'Users & Team Roles' }]} />
       <PageHeader title="Users" subtitle="Inventory managers and warehouse staff">
         <Button onClick={() => setAdding(true)}>Add member</Button>
       </PageHeader>
@@ -178,7 +201,7 @@ export default function UsersPage() {
         <Select placeholder="Any status" value={q.status ?? ''} options={STATUS_OPTIONS} onChange={(e) => setQ({ status: e.target.value })} aria-label="Status" />
       </div>
       {error && <ErrorState error={error} onRetry={reload} />}
-      {loading && !data ? <Spinner /> : data && (
+      {loading && !data ? <DataTable columns={columns} rows={[]} loading={true} /> : data && (
         <>
           <DataTable rows={data.data} columns={columns} rowClassName={(u) => (u.status === 'deactivated' ? 'dimmed' : '')}
             emptyTitle="No users match these filters" />
@@ -186,6 +209,38 @@ export default function UsersPage() {
         </>
       )}
       {adding && <AddUserModal onClose={() => setAdding(false)} onSaved={() => { setAdding(false); reload(); }} />}
+
+      <ConfirmModal
+        open={Boolean(deactModal)}
+        title={`Deactivate ${deactModal?.name}?`}
+        message={`Are you sure you want to deactivate ${deactModal?.name}? They will be immediately signed out and unable to log in until re-activated.`}
+        confirmLabel="Deactivate Account"
+        cancelLabel="Keep Active"
+        variant="warning"
+        loading={busy === deactModal?.id}
+        onConfirm={async () => {
+          const u = deactModal;
+          setDeactModal(null);
+          await run(u.id, () => userApi.update(u.id, { status: 'deactivated' }), `${u.name} deactivated`);
+        }}
+        onClose={() => setDeactModal(null)}
+      />
+
+      <ConfirmModal
+        open={Boolean(deleteModal)}
+        title={`Delete Team Member ${deleteModal?.name}?`}
+        message={`Are you sure you want to permanently delete ${deleteModal?.name}? Their login will be deleted and all active sessions terminated. Historical stock documents and moves they created will retain their name for audit compliance.`}
+        confirmLabel="Delete User"
+        cancelLabel="Keep User"
+        variant="danger"
+        loading={busy === `d${deleteModal?.id}`}
+        onConfirm={async () => {
+          const u = deleteModal;
+          setDeleteModal(null);
+          await run(`d${u.id}`, () => userApi.remove(u.id), `${u.name} was deleted`);
+        }}
+        onClose={() => setDeleteModal(null)}
+      />
     </>
   );
 }

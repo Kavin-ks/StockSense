@@ -67,3 +67,8 @@ export const pickSchema = z.object({
     pickedQty: quantity('Picked quantity'),
   })).min(1, 'Nothing to pick'),
 });
+
+
+export const batchIdsSchema = z.object({
+  ids: z.array(z.coerce.number().int().positive()).min(1, 'Select at least one operation'),
+});

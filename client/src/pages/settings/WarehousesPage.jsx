@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '../../components/Breadcrumbs.jsx';
 import { useState } from 'react';
 import { warehouseApi } from '../../api/endpoints.js';
 import { useFetch } from '../../hooks/useFetch.js';
@@ -42,6 +43,7 @@ export default function WarehousesPage() {
   const canWrite = useAuth().can('settings.write'); // undefined = closed, null = new
   return (
     <>
+      <Breadcrumbs items={[{ label: 'Settings' }, { label: 'Warehouses' }]} />
       <PageHeader title="Warehouses" subtitle="Warehouse details and addresses">
         <ShowArchivedToggle checked={showArchived} onChange={setShowArchived} />
         {canWrite && <Button onClick={() => setEditing(null)}>New warehouse</Button>}

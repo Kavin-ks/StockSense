@@ -1,3 +1,5 @@
+import { CommandPalette } from './CommandPalette.jsx';
+import { ShortcutsModal } from './ShortcutsModal.jsx';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -19,7 +21,9 @@ import {
   Menu,
   X,
   ShieldCheck,
-  Users
+  Users,
+  Search,
+  HelpCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { AlertBell } from './AlertBell.jsx';
@@ -64,6 +68,30 @@ export function Layout() {
 
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  useEffect(() => {
+    const handleGlobalShortcuts = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setCmdOpen((prev) => !prev);
+        return;
+      }
+      if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) {
+        e.preventDefault();
+        setShortcutsOpen((prev) => !prev);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setCmdOpen(false);
+        setShortcutsOpen(false);
+        setActiveDropdown(null);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
+  }, []);
   const navRef = useRef(null);
   const closeTimerRef = useRef(null);
 
@@ -197,7 +225,7 @@ export function Layout() {
             </button>
 
             <NavLink to="/" className="top-nav-brand">
-              <img src="/logo.svg" alt="StockSense" width="28" height="28" />
+              <img src="/logo.png" alt="StockSense" className="top-nav-logo" width="30" height="30" />
               <span className="brand-text">StockSense</span>
             </NavLink>
           </div>
@@ -551,8 +579,30 @@ export function Layout() {
             </div>
           </nav>
 
-          {/* Right Section: Theme Toggle, Notifications & User Profile */}
+          {/* Right Section: Search, Shortcuts, Theme Toggle, Notifications & User Profile */}
           <div className="top-nav-right">
+            <button
+              type="button"
+              className="top-search-btn"
+              onClick={() => setCmdOpen(true)}
+              title="Global Search & Quick Actions (Ctrl+K)"
+              aria-label="Search or quick actions"
+            >
+              <Search size={14} className="top-search-icon" />
+              <span className="top-search-text">Search...</span>
+              <kbd className="top-search-kbd">Ctrl K</kbd>
+            </button>
+
+            <button
+              type="button"
+              className="top-nav-action-btn"
+              onClick={() => setShortcutsOpen(true)}
+              title="Keyboard Shortcuts (?)"
+              aria-label="Keyboard Shortcuts"
+            >
+              <HelpCircle size={17} />
+            </button>
+
             <ThemeToggle />
             <AlertBell />
 
@@ -636,7 +686,7 @@ export function Layout() {
       <aside className={`mobile-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="mobile-sidebar-head">
           <div className="brand">
-            <img src="/logo.svg" alt="StockSense" width="28" height="28" />
+            <img src="/logo.png" alt="StockSense" className="top-nav-logo" width="30" height="30" />
             <span className="brand-text">StockSense</span>
           </div>
           <button
@@ -717,6 +767,10 @@ export function Layout() {
           </button>
         </div>
       </aside>
+
+      {/* Global Command Palette & Shortcuts */}
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       {/* Backdrop Scrim */}
       <div

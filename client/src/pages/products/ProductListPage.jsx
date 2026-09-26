@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '../../components/Breadcrumbs.jsx';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArchiveRestore, Download, ScanLine, Upload } from 'lucide-react';
@@ -61,6 +62,7 @@ export default function ProductListPage({ mode = 'catalog' }) {
 
   return (
     <>
+      <Breadcrumbs items={[{ label: mode === 'stock' ? 'Stock Inventory' : 'Products Catalog' }]} />
       <PageHeader title={mode === 'stock' ? 'Stock' : 'Products'} subtitle={q.locationId || q.warehouseId ? 'Quantities shown for the selected warehouse / location' : mode === 'stock' ? 'Current stock across all warehouses' : undefined}>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <Button variant="outline" onClick={() => setScannerOpen(true)}>
@@ -83,7 +85,7 @@ export default function ProductListPage({ mode = 'catalog' }) {
         )}
       </FilterBar>
       {error && <ErrorState error={error} onRetry={reload} />}
-      {loading && !data ? <Spinner /> : data && (
+      {loading && !data ? <DataTable columns={columns} rows={[]} loading={true} /> : data && (
         <>
           <DataTable columns={columns} rows={data.data} onRowClick={(p) => navigate(`/products/${p.id}`)}
             emptyTitle={showArchived ? 'No archived products' : 'No products found'}

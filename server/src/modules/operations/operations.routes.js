@@ -34,6 +34,12 @@ router.put('/:id', validate({ params: idParam, body: s.operationSchema }), autho
   res.json(await service.updateOperation(req.valid.params.id, req.valid.body, req.user))));
 
 // State transitions are explicit actions, not generic "PATCH status".
+// Batch operations
+router.post('/batch/confirm', validate({ body: s.batchIdsSchema }), asyncHandler(async (req, res) =>
+  res.json(await service.batchConfirmOperations(req.valid.body.ids, req.user))));
+router.post('/batch/cancel', validate({ body: s.batchIdsSchema }), asyncHandler(async (req, res) =>
+  res.json(await service.batchCancelOperations(req.valid.body.ids, req.user))));
+
 router.post('/:id/confirm', validate({ params: idParam }), authorize('process'), asyncHandler(async (req, res) =>
   res.json(await service.confirmOperation(req.valid.params.id, req.user))));
 router.post('/:id/validate', validate({ params: idParam }), authorize('process'), asyncHandler(async (req, res) =>

@@ -1,3 +1,4 @@
+import { KpiSkeleton } from '../components/Skeleton.jsx';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package } from 'lucide-react';
@@ -168,7 +169,7 @@ export default function DashboardPage() {
       <FilterBar filters={filters} onChange={setFilters} fields={['type', 'status', 'warehouseId', 'locationId', 'categoryId']} />
 
       {summary.error && <ErrorState error={summary.error} onRetry={summary.reload} />}
-      {summary.loading && !data && <Spinner />}
+      {summary.loading && !data && <KpiSkeleton count={7} />}
       {data && !summary.error && (
         <>
           <div className="kpi-grid">
@@ -199,7 +200,16 @@ export default function DashboardPage() {
           {listPath && <Link to={`${listPath}?${viewAllQuery}`}>View all →</Link>}
         </div>
         {ops.error && !summary.error && <ErrorState error={ops.error} onRetry={ops.reload} />}
-        {ops.loading && !ops.data ? <Spinner /> : ops.data && !ops.error && (
+        {ops.loading && !ops.data ? (
+          <DataTable loading={true} columns={[
+            { key: 'reference', header: 'Reference' },
+            { key: 'type', header: 'Type' },
+            { key: 'scheduledDate', header: 'Scheduled' },
+            { key: 'contact', header: 'Contact' },
+            { key: 'route', header: 'From → To' },
+            { key: 'status', header: 'Status' },
+          ]} rows={[]} />
+        ) : ops.data && !ops.error && (
           <DataTable rows={ops.data.data} onRowClick={(o) => navigate(`${OPERATION_META[o.type].path}/${o.id}`)}
             emptyTitle="No operations match these filters" emptyText="Try clearing a filter." columns={[
               { key: 'reference', header: 'Reference', render: (o) => <strong>{o.reference}</strong> },

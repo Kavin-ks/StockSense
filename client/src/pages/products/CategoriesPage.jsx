@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '../../components/Breadcrumbs.jsx';
 import { categoryApi } from '../../api/endpoints.js';
 import { useState } from 'react';
 import { useFetch } from '../../hooks/useFetch.js';
@@ -21,6 +22,7 @@ export default function CategoriesPage() {
   });
   return (
     <>
+      <Breadcrumbs items={[{ label: 'Products' }, { label: 'Categories' }]} />
       <PageHeader title="Product categories">
         <ShowArchivedToggle checked={showArchived} onChange={setShowArchived} />
       </PageHeader>

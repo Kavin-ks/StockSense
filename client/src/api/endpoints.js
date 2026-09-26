@@ -70,6 +70,8 @@ export const operationApi = {
   confirm: (id) => api.post(`/operations/${id}/confirm`),
   validate: (id) => api.post(`/operations/${id}/validate`),
   cancel: (id) => api.post(`/operations/${id}/cancel`),
+  batchConfirm: (ids) => api.post('/operations/batch/confirm', { ids }),
+  batchCancel: (ids) => api.post('/operations/batch/cancel', { ids }),
   adjust: (body) => api.post('/operations/adjustments', body),
   pick: (id, body) => api.post(`/operations/${id}/pick`, body),
   pack: (id) => api.post(`/operations/${id}/pack`),
@@ -111,4 +113,8 @@ export const reportsApi = {
 
 export const importApi = {
   products: (csvText, dryRun) => api.postText('/import/products', csvText, { dryRun: dryRun ? 'true' : undefined }),
+};
+
+export const searchApi = {
+  query: (q) => api.get('/search', { q }),
 };

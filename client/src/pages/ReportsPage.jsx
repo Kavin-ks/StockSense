@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '../components/Breadcrumbs.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { reportsApi } from '../api/endpoints.js';
 import { useFetch } from '../hooks/useFetch.js';
@@ -34,6 +35,7 @@ export default function ReportsPage() {
 
   return (
     <>
+      <Breadcrumbs items={[{ label: 'Inventory Reports & Valuation' }]} />
       <PageHeader title="Reports & counts" subtitle="Movement insight from the stock ledger">
         <Select value={q.window} options={WINDOWS} onChange={(e) => setQ({ window: e.target.value })} aria-label="Time window" />
       </PageHeader>

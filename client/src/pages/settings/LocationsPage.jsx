@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '../../components/Breadcrumbs.jsx';
 import { useState } from 'react';
 import { locationApi } from '../../api/endpoints.js';
 import { toOptions, useWarehouses } from '../../hooks/useLookups.js';
@@ -54,6 +55,7 @@ export default function LocationsPage() {
   const canWrite = useAuth().can('settings.write');
   return (
     <>
+      <Breadcrumbs items={[{ label: 'Settings' }, { label: 'Locations & Bins' }]} />
       <PageHeader title="Locations" subtitle="Racks, rooms and zones inside each warehouse">
         <Select placeholder="All warehouses" value={q.warehouseId ?? ''} options={toOptions(warehouses)} onChange={(e) => setQ({ warehouseId: e.target.value })} aria-label="Warehouse" />
         <ShowArchivedToggle checked={showArchived} onChange={(v) => setQ({ archived: v ? 'true' : '' })} />

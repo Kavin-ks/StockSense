@@ -1,3 +1,5 @@
+import { Breadcrumbs } from '../../components/Breadcrumbs.jsx';
+import { ConfirmModal } from '../../components/ConfirmModal.jsx';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { productApi } from '../../api/endpoints.js';
@@ -73,19 +75,28 @@ export default function ProductFormPage() {
   const [product, setProduct] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [staleNotice, setStaleNotice] = useState('');
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const { can } = useAuth();
   const canWrite = can('products.write');
 
   // Archive hides the product from pickers and lists; history keeps it. The server refuses while
   // the product still has stock or is on an open document, and explains why.
-  const toggleArchive = async () => {
-    if (product.isActive && !window.confirm(`Archive ${product.name}? It will no longer be selectable on new documents.`)) return;
+  const executeArchive = async () => {
     try {
       await (product.isActive ? productApi.archive(product.id) : productApi.restore(product.id));
       notify(`${product.name} ${product.isActive ? 'archived' : 'restored'}`);
+      setArchiveConfirmOpen(false);
       load();
     } catch (err) {
       notify(err.message, 'error');
+    }
+  };
+
+  const toggleArchive = () => {
+    if (product.isActive) {
+      setArchiveConfirmOpen(true);
+    } else {
+      executeArchive();
     }
   };
   const { data: categories } = useCategories();
@@ -128,6 +139,12 @@ export default function ProductFormPage() {
 
   return (
     <>
+      <Breadcrumbs
+        items={[
+          { label: 'Products', to: '/products' },
+          { label: isNew ? 'New Product' : (product?.name || 'Product Details') },
+        ]}
+      />
       <PageHeader title={isNew ? 'New product' : product.name} subtitle={isNew ? undefined : `SKU ${product.sku}${product.isActive ? '' : ' · archived'}`}>
         {!isNew && canWrite && (product.isActive ? (
           <Button variant="danger-ghost" onClick={toggleArchive}><Archive size={15} /> Archive</Button>

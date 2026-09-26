@@ -67,6 +67,27 @@ export function createApp() {
     res.json({ avatarUrl: null });
   }));
 
+  // Global unified search (Command Palette Ctrl+K)
+  api.get('/search', asyncHandler(async (req, res) => {
+    const q = String(req.query.q || '').trim();
+    if (!q || q.length < 2) {
+      return res.json({ products: [], operations: [], warehouses: [], locations: [] });
+    }
+    const term = `%${q}%`;
+    const [prods, ops, whs, locs] = await Promise.all([
+      pool.query(`SELECT id, name, sku, uom FROM products WHERE (name ILIKE $1 OR sku ILIKE $1) AND is_active = true ORDER BY name LIMIT 6`, [term]),
+      pool.query(`SELECT id, reference, type, status, contact, scheduled_date as "scheduledDate" FROM operations WHERE reference ILIKE $1 OR contact ILIKE $1 ORDER BY id DESC LIMIT 6`, [term]),
+      pool.query(`SELECT id, name, short_code as code FROM warehouses WHERE name ILIKE $1 OR short_code ILIKE $1 ORDER BY name LIMIT 5`, [term]),
+      pool.query(`SELECT l.id, l.name, l.short_code as code, w.name as "warehouseName" FROM locations l JOIN warehouses w ON l.warehouse_id = w.id WHERE (l.name ILIKE $1 OR l.short_code ILIKE $1) AND l.is_active = true ORDER BY l.name LIMIT 5`, [term])
+    ]);
+    res.json({
+      products: prods.rows,
+      operations: ops.rows,
+      warehouses: whs.rows,
+      locations: locs.rows
+    });
+  }));
+
   app.use('/api', api);
 
   app.use(notFoundHandler);

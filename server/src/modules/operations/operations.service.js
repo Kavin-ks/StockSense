@@ -1,3 +1,4 @@
+import { can } from '../../config/permissions.js';
 /**
  * Operations = stock documents (receipts, deliveries, internal transfers, adjustments).
  *
@@ -417,4 +418,39 @@ export async function afterStockChange(db, productIds, actor) {
   const ids = [...new Set(productIds.map(Number))];
   await publish(db, 'stock', { productIds: ids }, actor);
   await refreshDeliveriesForProducts(db, ids, actor);
+}
+
+
+export async function batchConfirmOperations(ids, actor) {
+  const results = { succeeded: [], failed: [] };
+  for (const id of ids) {
+    try {
+      const type = await getOperationType(id);
+      if (!can(actor.role, `${type}.process`)) {
+        throw AppError.forbidden(`You cannot process ${type} operations`);
+      }
+      const op = await confirmOperation(id, actor);
+      results.succeeded.push({ id, reference: op.reference });
+    } catch (err) {
+      results.failed.push({ id, error: err.message });
+    }
+  }
+  return results;
+}
+
+export async function batchCancelOperations(ids, actor) {
+  const results = { succeeded: [], failed: [] };
+  for (const id of ids) {
+    try {
+      const type = await getOperationType(id);
+      if (!can(actor.role, `${type}.manage`)) {
+        throw AppError.forbidden(`You cannot cancel ${type} operations`);
+      }
+      const op = await cancelOperation(id, actor);
+      results.succeeded.push({ id, reference: op.reference });
+    } catch (err) {
+      results.failed.push({ id, error: err.message });
+    }
+  }
+  return results;
 }

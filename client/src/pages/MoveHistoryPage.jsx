@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '../components/Breadcrumbs.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { KanbanBoard } from '../components/KanbanBoard.jsx';
 import { Download } from 'lucide-react';
@@ -28,6 +29,7 @@ export default function MoveHistoryPage() {
 
   return (
     <>
+      <Breadcrumbs items={[{ label: 'Move History & Audit Trail' }]} />
       <PageHeader title="Move History" subtitle="Every stock movement, as recorded in the ledger">
         <Button variant="outline" onClick={() => exportApi.moves()}>
           <Download size={16} /> Export CSV
