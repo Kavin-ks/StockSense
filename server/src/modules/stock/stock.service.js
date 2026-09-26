@@ -77,7 +77,7 @@ export async function onHand(db, productId, locationId) {
 
 // ------------------------------------------------------------------ move history (ledger)
 
-export async function listMoves({ search, productId, warehouseId, direction, from, to, page, pageSize }) {
+export async function listMoves({ search, productId, warehouseId, locationId, categoryId, type, direction, from, to, page, pageSize }) {
   const where = [];
   const params = [];
   const add = (sql, v) => { params.push(v); where.push(sql.replaceAll('?', `$${params.length}`)); };
@@ -85,6 +85,10 @@ export async function listMoves({ search, productId, warehouseId, direction, fro
   if (search) add('(m.reference ILIKE ? OR m.contact ILIKE ? OR p.name ILIKE ? OR p.sku ILIKE ?)', `%${search}%`);
   if (productId) add('m.product_id = ?', productId);
   if (warehouseId) add('(fl.warehouse_id = ? OR tl.warehouse_id = ?)', warehouseId);
+  if (locationId) add('(m.from_location_id = ? OR m.to_location_id = ?)', locationId);
+  if (categoryId) add('p.category_id = ?', categoryId);
+  // Document type is encoded in the reference (WH/IN/0001); this also covers initial-stock adjustments.
+  if (type) add(`split_part(m.reference, '/', 2) = ?`, REF_CODES[type]);
   if (from) add('m.created_at >= ?::date', from);
   if (to) add(`m.created_at < ?::date + 1`, to);
   if (direction === 'in') where.push(`fl.type <> 'internal' AND tl.type = 'internal'`);

@@ -22,15 +22,10 @@ import {
   AlertTriangle,
   Lock,
   Save,
-  Building2,
-  Phone,
-  Compass,
-  CalendarDays,
-  Hash,
-  ShieldAlert,
   Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import { useForm } from '../hooks/useForm.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { Alert, Button, Input, Select } from '../components/ui.jsx';
@@ -39,13 +34,11 @@ import { warehouseApi } from '../api/endpoints.js';
 
 export default function ProfilePage() {
   const { user, updateProfile, logout } = useAuth();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const notify = useToast();
   const [activeTab, setActiveTab] = useState('general');
   const [warehouses, setWarehouses] = useState([]);
   const [copied, setCopied] = useState(false);
-
-  // Theme state
-  const [theme, setTheme] = useState(() => localStorage.getItem('stocksense_theme') || 'system');
 
   // Preferences state
   const [prefs, setPrefs] = useState(() => {
@@ -87,17 +80,6 @@ export default function ProfilePage() {
   useEffect(() => {
     warehouseApi.list().then(setWarehouses).catch(() => {});
   }, []);
-
-  // Sync theme
-  useEffect(() => {
-    localStorage.setItem('stocksense_theme', theme);
-    if (theme === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-  }, [theme]);
 
   // Main profile form
   const form = useForm(
@@ -169,6 +151,7 @@ export default function ProfilePage() {
     const data = {
       profile: { name: user?.name, email: user?.email, loginId: user?.loginId, role: user?.role },
       theme,
+      resolvedTheme,
       preferences: prefs,
       notifications: notifs,
       exportedAt: new Date().toISOString(),
@@ -324,7 +307,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Tab 2: Theme & Appearance */}
+      {/* Tab 2: Theme & Appearance (Synchronized with App ThemeContext) */}
       {activeTab === 'appearance' && (
         <div className="profile-section-card">
           <div className="section-head">
@@ -354,8 +337,8 @@ export default function ProfilePage() {
               onClick={() => setTheme('dark')}
             >
               <div className="theme-card-preview" style={{ background: '#0b0e17', padding: '6px', gap: '4px' }}>
-                <div style={{ width: '25%', background: '#131726', borderRadius: '4px', border: '1px solid #262c45' }} />
-                <div style={{ flex: 1, background: '#131726', borderRadius: '4px', border: '1px solid #262c45' }} />
+                <div style={{ width: '25%', background: '#131726', borderRadius: '4px', border: '1px solid #262c42' }} />
+                <div style={{ flex: 1, background: '#131726', borderRadius: '4px', border: '1px solid #262c42' }} />
               </div>
               <div>
                 <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -372,7 +355,7 @@ export default function ProfilePage() {
               <div className="theme-card-preview" style={{ background: 'linear-gradient(90deg, #f8fafc 50%, #0b0e17 50%)', padding: '6px' }} />
               <div>
                 <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Laptop size={16} /> System Default
+                  <Laptop size={16} /> System Default ({resolvedTheme})
                 </strong>
                 <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>Automatically mirrors OS settings</p>
               </div>
@@ -430,9 +413,9 @@ export default function ProfilePage() {
               onChange={(e) => handlePrefChange('landingPage', e.target.value)}
               options={[
                 { value: '/dashboard', label: 'Dashboard Overview' },
-                { value: '/receipts', label: 'Inward Receipts' },
-                { value: '/deliveries', label: 'Outward Deliveries' },
-                { value: '/transfers', label: 'Internal Transfers' },
+                { value: '/operations/receipts', label: 'Inward Receipts' },
+                { value: '/operations/deliveries', label: 'Outward Deliveries' },
+                { value: '/operations/transfers', label: 'Internal Transfers' },
                 { value: '/stock', label: 'Stock Quants & Balances' },
               ]}
               hint="Screen loaded automatically when you sign in."

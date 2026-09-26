@@ -11,7 +11,7 @@
 import { query, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../utils/AppError.js';
 import { moveStock, nextReference, onHand } from '../stock/stock.service.js';
-import { defaultLocationId, virtualLocationId } from '../warehouses/warehouses.service.js';
+import { defaultLocationId, resolveScope, virtualLocationId } from '../warehouses/warehouses.service.js';
 
 const OP_COLS = `o.id, o.reference, o.type, o.status, o.warehouse_id AS "warehouseId", w.name AS "warehouseName",
   o.source_location_id AS "sourceLocationId", o.dest_location_id AS "destLocationId",
@@ -30,14 +30,16 @@ const OP_FROM = `FROM operations o
 
 // ------------------------------------------------------------------ queries
 
-export async function listOperations(f) {
+export async function listOperations(filters) {
+  const f = { ...filters, ...(await resolveScope(filters)) };
   const where = [];
   const params = [];
   const add = (sql, v) => { params.push(v); where.push(sql.replaceAll('?', `$${params.length}`)); };
 
   if (f.type) add('o.type = ?', f.type);
   if (f.status) add('o.status = ?', f.status);
-  if (f.warehouseId) add('o.warehouse_id = ?', f.warehouseId);
+  // Include transfers into/out of this warehouse even when the document belongs to another one.
+  if (f.warehouseId) add('(o.warehouse_id = ? OR sl.warehouse_id = ? OR dl.warehouse_id = ?)', f.warehouseId);
   if (f.locationId) add('(o.source_location_id = ? OR o.dest_location_id = ?)', f.locationId);
   if (f.search) add('(o.reference ILIKE ? OR o.contact ILIKE ?)', `%${f.search}%`);
   if (f.categoryId) add(`EXISTS (SELECT 1 FROM operation_lines ol JOIN products p ON p.id = ol.product_id

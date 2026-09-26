@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { AlertBell } from './AlertBell.jsx';
+import { ThemeToggle } from './ThemeToggle.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -106,6 +107,7 @@ export function Layout() {
             <Menu size={20} />
           </button>
           <div className="spacer" />
+          <ThemeToggle />
           <AlertBell />
         </header>
         <main className="content">
