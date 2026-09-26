@@ -449,7 +449,7 @@ export function Layout() {
                       }
                       onClick={() => setActiveDropdown(null)}
                     >
-                      <div className="dropdown-icon-box moves">
+                      <div className="dropdown-icon-box reports">
                         <BarChart3 size={18} />
                       </div>
                       <div className="dropdown-item-details">
@@ -501,9 +501,7 @@ export function Layout() {
                       }
                       onClick={() => setActiveDropdown(null)}
                     >
-                      <div className="dropdown-icon-box settings">
-                        <Warehouse size={18} />
-                      </div>
+                      <div className="dropdown-icon-box warehouses"><Warehouse size={18} /></div>
                       <div className="dropdown-item-details">
                         <div className="dropdown-item-title">Warehouses</div>
                         <div className="dropdown-item-desc">
@@ -519,9 +517,7 @@ export function Layout() {
                       }
                       onClick={() => setActiveDropdown(null)}
                     >
-                      <div className="dropdown-icon-box settings">
-                        <MapPin size={18} />
-                      </div>
+                      <div className="dropdown-icon-box locations"><MapPin size={18} /></div>
                       <div className="dropdown-item-details">
                         <div className="dropdown-item-title">Locations</div>
                         <div className="dropdown-item-desc">
@@ -538,9 +534,7 @@ export function Layout() {
                         }
                         onClick={() => setActiveDropdown(null)}
                       >
-                        <div className="dropdown-icon-box settings">
-                          <Users size={18} />
-                        </div>
+                        <div className="dropdown-icon-box users"><Users size={18} /></div>
                         <div className="dropdown-item-details">
                           <div className="dropdown-item-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             Users <PendingBadge />

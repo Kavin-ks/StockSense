@@ -475,27 +475,82 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
   font-weight: 700;
 }
 
+/* Industrial Level Dropdown Icon Badges */
 .dropdown-icon-box {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 10px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  transition: all 0.15s;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.6);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15);
 }
 
-.dropdown-icon-box.in { background: var(--success-soft); color: var(--success); }
-.dropdown-icon-box.out { background: var(--info-soft); color: var(--primary); }
-.dropdown-icon-box.transfer { background: #f3e8ff; color: #9333ea; }
-.dropdown-icon-box.adjustment { background: var(--warn-soft); color: var(--warn); }
-.dropdown-icon-box.product { background: var(--primary-soft); color: var(--primary); }
-.dropdown-icon-box.stock { background: var(--success-soft); color: var(--success); }
-.dropdown-icon-box.category { background: #fdf2f8; color: #db2777; }
-.dropdown-icon-box.moves { background: #f1f5f9; color: var(--text); }
-.dropdown-icon-box.settings { background: var(--surface-2); color: var(--muted); }
+/* Light mode industrial badges */
+.dropdown-icon-box.in,
+.dropdown-icon-box.receipts { background: rgba(16, 185, 129, 0.12); color: #059669; border-color: rgba(16, 185, 129, 0.25); }
+
+.dropdown-icon-box.out,
+.dropdown-icon-box.deliveries { background: rgba(59, 130, 246, 0.12); color: #2563eb; border-color: rgba(59, 130, 246, 0.25); }
+
+.dropdown-icon-box.transfer,
+.dropdown-icon-box.transfers { background: rgba(168, 85, 247, 0.12); color: #9333ea; border-color: rgba(168, 85, 247, 0.25); }
+
+.dropdown-icon-box.adjustment,
+.dropdown-icon-box.adjustments { background: rgba(245, 158, 11, 0.12); color: #d97706; border-color: rgba(245, 158, 11, 0.25); }
+
+.dropdown-icon-box.product,
+.dropdown-icon-box.products { background: rgba(99, 102, 241, 0.12); color: #4f46e5; border-color: rgba(99, 102, 241, 0.25); }
+
+.dropdown-icon-box.stock { background: rgba(16, 185, 129, 0.12); color: #059669; border-color: rgba(16, 185, 129, 0.25); }
+
+.dropdown-icon-box.category,
+.dropdown-icon-box.categories { background: rgba(236, 72, 153, 0.12); color: #db2777; border-color: rgba(236, 72, 153, 0.25); }
+
+.dropdown-icon-box.moves { background: rgba(14, 165, 233, 0.12); color: #0284c7; border-color: rgba(14, 165, 233, 0.25); }
+
+.dropdown-icon-box.reports { background: rgba(249, 115, 22, 0.12); color: #ea580c; border-color: rgba(249, 115, 22, 0.25); }
+
+.dropdown-icon-box.settings,
+.dropdown-icon-box.warehouses { background: rgba(99, 102, 241, 0.12); color: #4f46e5; border-color: rgba(99, 102, 241, 0.25); }
+
+.dropdown-icon-box.locations { background: rgba(20, 184, 166, 0.12); color: #0d9488; border-color: rgba(20, 184, 166, 0.25); }
+
+.dropdown-icon-box.users { background: rgba(168, 85, 247, 0.12); color: #7c3aed; border-color: rgba(168, 85, 247, 0.25); }
+
+/* Dark mode industrial badges - vibrant, glowing contrast with ZERO washed-out white boxes */
+[data-theme="dark"] .dropdown-icon-box.in,
+[data-theme="dark"] .dropdown-icon-box.receipts { background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.out,
+[data-theme="dark"] .dropdown-icon-box.deliveries { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border-color: rgba(59, 130, 246, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.transfer,
+[data-theme="dark"] .dropdown-icon-box.transfers { background: rgba(168, 85, 247, 0.2); color: #c084fc; border-color: rgba(168, 85, 247, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.adjustment,
+[data-theme="dark"] .dropdown-icon-box.adjustments { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.product,
+[data-theme="dark"] .dropdown-icon-box.products { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.stock { background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.category,
+[data-theme="dark"] .dropdown-icon-box.categories { background: rgba(236, 72, 153, 0.2); color: #f472b6; border-color: rgba(236, 72, 153, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.moves { background: rgba(14, 165, 233, 0.2); color: #38bdf8; border-color: rgba(14, 165, 233, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.reports { background: rgba(249, 115, 22, 0.2); color: #fb923c; border-color: rgba(249, 115, 22, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.settings,
+[data-theme="dark"] .dropdown-icon-box.warehouses { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.locations { background: rgba(20, 184, 166, 0.2); color: #2dd4bf; border-color: rgba(20, 184, 166, 0.4); }
+
+[data-theme="dark"] .dropdown-icon-box.users { background: rgba(168, 85, 247, 0.2); color: #c084fc; border-color: rgba(168, 85, 247, 0.4); }
 
 .dropdown-item-details {
   display: flex;
@@ -1799,7 +1854,7 @@ a.kpi:hover::before {
 .role-badge { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 0 6px; border-radius: 999px; margin-right: 4px; }
 .role-manager { background: var(--primary-soft); color: var(--primary); }
 .role-staff { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
-.live-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.live-indicator { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
 .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .live-live .live-dot { background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); animation: live-pulse 2s ease-in-out infinite; }
 .live-connecting .live-dot { background: var(--warn); }
