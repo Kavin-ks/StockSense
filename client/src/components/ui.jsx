@@ -32,9 +32,9 @@ export const Select = ({ label, error, hint, required, options = [], placeholder
   </Field>
 );
 
-export function Button({ variant = 'primary', loading, children, ...props }) {
+export function Button({ variant = 'primary', loading, children, className = '', type = 'button', ...props }) {
   return (
-    <button className={`btn btn-${variant}`} disabled={loading || props.disabled} {...props}>
+    <button type={type} className={`btn btn-${variant} ${className}`} {...props} disabled={loading || props.disabled}>
       {loading ? <span className="spinner sm" aria-hidden /> : null}
       {children}
     </button>
