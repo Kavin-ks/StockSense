@@ -10,6 +10,17 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => { tokenStore.clear(); setUser(null); }, []);
 
+  const refreshUser = useCallback(async () => {
+    if (!tokenStore.get()) return null;
+    try {
+      const u = await authApi.me();
+      setUser(u);
+      return u;
+    } catch {
+      logout();
+    }
+  }, [logout]);
+
   useEffect(() => {
     setUnauthorizedHandler(logout);
     if (!tokenStore.get()) return;
@@ -24,8 +35,10 @@ export function AuthProvider({ children }) {
     login: async (creds) => startSession(await authApi.login(creds)),
     signup: async (data) => startSession(await authApi.signup(data)),
     updateProfile: async (data) => setUser(await authApi.updateMe(data)),
+    setUser,
+    refreshUser,
     logout,
-  }), [user, loading, logout, startSession]);
+  }), [user, loading, logout, startSession, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

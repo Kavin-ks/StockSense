@@ -8,6 +8,8 @@ export const authApi = {
   resetPassword: (body) => api.post('/auth/reset-password', body),
   me: () => api.get('/auth/me'),
   updateMe: (body) => api.put('/auth/me', body),
+  uploadAvatar: (formData) => api.upload('/auth/me/avatar', formData),
+  deleteAvatar: () => api.del('/auth/me/avatar'),
 };
 
 export const dashboardApi = {
@@ -56,4 +58,11 @@ export const operationApi = {
 
 export const moveApi = {
   list: (params) => api.get('/moves', params),
+};
+
+export const exportApi = {
+  products: () => api.download('/export/products'),
+  stock: () => api.download('/export/stock'),
+  moves: () => api.download('/export/moves'),
+  operations: () => api.download('/export/operations'),
 };

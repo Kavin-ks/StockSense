@@ -460,7 +460,7 @@ export function Layout() {
                 onClick={() => toggleDropdown('user')}
                 aria-expanded={activeDropdown === 'user'}
               >
-                <span className="top-user-avatar">{initials}</span>
+                {user?.avatarUrl ? <img src={user.avatarUrl} alt={user?.name} className="top-user-avatar-img" /> : <span className="top-user-avatar">{initials}</span>}
                 <div className="top-user-info-text">
                   <span className="top-user-name">{user?.name}</span>
                   <span className="top-user-role">
@@ -478,7 +478,7 @@ export function Layout() {
               {activeDropdown === 'user' && (
                 <div className="user-dropdown-panel">
                   <div className="user-dropdown-header">
-                    <div className="user-dropdown-avatar">{initials}</div>
+                    {user?.avatarUrl ? <img src={user.avatarUrl} alt={user?.name} className="user-dropdown-avatar-img" /> : <div className="user-dropdown-avatar">{initials}</div>}
                     <div className="user-dropdown-details">
                       <strong>{user?.name}</strong>
                       <small className="muted">{user?.email}</small>
@@ -595,7 +595,7 @@ export function Layout() {
             className={({ isActive }) => `profile-link ${isActive ? 'active' : ''}`}
             onClick={() => setMobileMenuOpen(false)}
           >
-            <span className="avatar">{initials}</span>
+            {user?.avatarUrl ? <img src={user.avatarUrl} alt={user?.name} className="top-user-avatar-img" /> : <span className="avatar">{initials}</span>}
             <span>
               <strong>{user?.name}</strong>
               <small className="muted">{user?.role || 'My Profile'}</small>

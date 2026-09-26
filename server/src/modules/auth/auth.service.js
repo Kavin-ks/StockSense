@@ -6,7 +6,7 @@ import { AppError } from '../../utils/AppError.js';
 import { signToken } from '../../middleware/auth.js';
 import { sendMail } from '../../utils/mailer.js';
 
-const PUBLIC_COLUMNS = 'id, login_id AS "loginId", name, email, role, created_at AS "createdAt"';
+const PUBLIC_COLUMNS = 'id, login_id AS "loginId", name, email, role, avatar_url AS "avatarUrl", created_at AS "createdAt"';
 const INVALID_LOGIN = 'Invalid Login Id or Password';
 const INVALID_OTP = () => AppError.badRequest('Invalid or expired OTP', { otp: 'Invalid or expired OTP' });
 // Compared against when the login id is unknown, so timing does not leak account existence.

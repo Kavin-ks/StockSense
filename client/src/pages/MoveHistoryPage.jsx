@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
-import { moveApi } from '../api/endpoints.js';
+import { Download } from 'lucide-react';
+import { Button } from '../components/ui.jsx';
+import { moveApi, exportApi } from '../api/endpoints.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { useQueryState } from '../hooks/useQueryState.js';
 import { FilterBar } from '../components/FilterBar.jsx';
@@ -23,7 +25,11 @@ export default function MoveHistoryPage() {
 
   return (
     <>
-      <PageHeader title="Move History" subtitle="Every stock movement, as recorded in the ledger" />
+      <PageHeader title="Move History" subtitle="Every stock movement, as recorded in the ledger">
+        <Button variant="outline" onClick={() => exportApi.moves()}>
+          <Download size={16} /> Export CSV
+        </Button>
+      </PageHeader>
       <FilterBar filters={q} onChange={setQ} fields={['search', 'type', 'warehouseId', 'locationId', 'categoryId']}
         searchPlaceholder="Search reference, contact or product">
         <Select placeholder="All directions" value={q.direction ?? ''} options={DIRECTIONS} onChange={(e) => setQ({ direction: e.target.value })} aria-label="Direction" />

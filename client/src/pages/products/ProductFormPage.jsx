@@ -7,6 +7,8 @@ import { toOptions, useCategories, useLocations, useWarehouses } from '../../hoo
 import { useToast } from '../../context/ToastContext.jsx';
 import { Alert, Button, ErrorState, Input, PageHeader, Select, Spinner } from '../../components/ui.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
+import { ScanLine } from 'lucide-react';
+import { BarcodeScanner } from '../../components/BarcodeScanner.jsx';
 import { fmtQty } from '../../utils.js';
 
 const EMPTY = { name: '', sku: '', categoryId: '', uom: 'Units', unitCost: '0', initialStock: '', initialLocationId: '' };
@@ -71,6 +73,7 @@ export default function ProductFormPage() {
   const { data: categories } = useCategories();
   const { data: uoms } = useFetch(() => productApi.uoms(), []);
   const { data: locations } = useLocations();
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const form = useForm(EMPTY, {
     validate: (v) => validateProduct(v, isNew),
@@ -103,7 +106,14 @@ export default function ProductFormPage() {
       <Alert>{form.formError}</Alert>
       <form className="card form-grid" onSubmit={form.handleSubmit} noValidate>
         <Input label="Name" required {...form.bind('name')} />
-        <Input label="SKU / Code" required {...form.bind('sku')} />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <Input label="SKU / Code" required {...form.bind('sku')} />
+          </div>
+          <Button type="button" variant="outline" onClick={() => setScannerOpen(true)} title="Scan Barcode / SKU">
+            <ScanLine size={16} /> Scan
+          </Button>
+        </div>
         <Select label="Category" placeholder="Uncategorised" options={toOptions(categories)} {...form.bind('categoryId')} />
         <Select label="Unit of measure" required options={(uoms ?? ['Units']).map((u) => ({ value: u, label: u }))} {...form.bind('uom')} />
         <Input label="Per unit cost (Rs)" type="number" min="0" step="0.01" {...form.bind('unitCost')} />
@@ -128,6 +138,7 @@ export default function ProductFormPage() {
           <ReorderRules product={product} onChange={setProduct} />
         </div>
       )}
+      <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => form.setValues((prev) => ({ ...prev, sku: code }))} />
     </>
   );
 }
