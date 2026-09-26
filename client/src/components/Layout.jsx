@@ -24,7 +24,6 @@ import {
 import { useAuth } from '../context/AuthContext.jsx';
 import { AlertBell } from './AlertBell.jsx';
 import { ThemeToggle } from './ThemeToggle.jsx';
-import { LiveIndicator } from './LiveIndicator.jsx';
 import { PendingBadge } from './PendingBadge.jsx';
 
 const MOBILE_NAV = [
@@ -560,7 +559,6 @@ export function Layout() {
 
           {/* Right Section: Theme Toggle, Notifications & User Profile */}
           <div className="top-nav-right">
-            <LiveIndicator />
             <ThemeToggle />
             <AlertBell />
 
