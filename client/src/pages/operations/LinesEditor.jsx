@@ -1,18 +1,13 @@
-import { productApi } from '../../api/endpoints.js';
-import { useFetch } from '../../hooks/useFetch.js';
 import { Button } from '../../components/ui.jsx';
+import { ProductPicker } from '../../components/ProductPicker.jsx';
 import { fmtQty } from '../../utils.js';
 
 /**
- * Editable product lines. Loads a product list for the picker once.
+ * Editable product lines with a searchable product picker (works for any catalogue size).
  * `qtyKey` lets adjustments reuse this with "countedQty".
  * `lineInfo(line)` returns optional extra info / warnings per line (e.g. availability).
  */
 export function LinesEditor({ lines, onChange, readOnly, error, qtyKey = 'quantity', qtyLabel = 'Quantity', lineInfo }) {
-  // Live, so a product a manager just created is immediately pickable by everyone.
-  const { data } = useFetch(() => productApi.list({ pageSize: 100 }), [], { live: ['products'] });
-  const products = data?.data ?? [];
-
   const update = (i, patch) => onChange(lines.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const remove = (i) => onChange(lines.filter((_, idx) => idx !== i));
   const used = new Set(lines.map((l) => String(l.productId)));
@@ -28,13 +23,8 @@ export function LinesEditor({ lines, onChange, readOnly, error, qtyKey = 'quanti
               <tr key={i} className={info?.danger ? 'row-danger' : ''}>
                 <td>
                   {readOnly ? `[${l.sku}] ${l.productName}` : (
-                    <select className="input" value={l.productId ?? ''} aria-label="Product"
-                      onChange={(e) => update(i, { productId: e.target.value })}>
-                      <option value="">Select a product…</option>
-                      {products.filter((p) => !used.has(String(p.id)) || String(p.id) === String(l.productId)).map((p) => (
-                        <option key={p.id} value={p.id}>[{p.sku}] {p.name}</option>
-                      ))}
-                    </select>
+                    <ProductPicker value={l.productId} selected={l} exclude={[...used]}
+                      onSelect={(p) => update(i, { productId: String(p.id), sku: p.sku, productName: p.name, uom: p.uom })} />
                   )}
                 </td>
                 <td style={{ textAlign: 'right' }}>

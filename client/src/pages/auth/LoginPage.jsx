@@ -15,8 +15,9 @@ export default function LoginPage() {
       ...(!v.password && { password: 'Password is required' }),
     }),
     onSubmit: async (v) => {
-      await login(v);
-      navigate(location.state?.from?.pathname ?? '/', { replace: true });
+      const landingPage = await login(v);
+      // Return to the page that required sign-in, otherwise the user's preferred starting page.
+      navigate(location.state?.from?.pathname ?? landingPage, { replace: true });
     },
   });
 

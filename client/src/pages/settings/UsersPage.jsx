@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserCheck, UserX } from 'lucide-react';
+import { Trash2, UserCheck, UserX } from 'lucide-react';
 import { userApi } from '../../api/endpoints.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -148,11 +148,20 @@ export default function UsersPage() {
       if (u.status === 'pending') return <span className="muted small-print">Review above</span>;
       const active = u.status === 'active';
       return (
-        <Button variant={active ? 'danger-ghost' : 'ghost'} loading={busy === u.id}
-          onClick={() => (!active || window.confirm(`Deactivate ${u.name}? They will be signed out immediately.`))
-            && run(u.id, () => userApi.update(u.id, { status: active ? 'deactivated' : 'active' }), `${u.name} ${active ? 'deactivated' : 're-activated'}`)}>
-          {active ? 'Deactivate' : 'Re-activate'}
-        </Button>
+        <div className="row-actions">
+          <Button variant="ghost" loading={busy === u.id}
+            onClick={() => (!active || window.confirm(`Deactivate ${u.name}? They will be signed out immediately.`))
+              && run(u.id, () => userApi.update(u.id, { status: active ? 'deactivated' : 'active' }), `${u.name} ${active ? 'deactivated' : 're-activated'}`)}>
+            {active ? 'Deactivate' : 'Re-activate'}
+          </Button>
+          <Button variant="danger-ghost" aria-label={`Delete ${u.name}`} disabled={Boolean(busy)}
+            onClick={() => window.confirm(
+              `Delete ${u.name}?\n\nTheir login is removed and they are signed out everywhere. `
+              + 'Documents and stock moves they made keep their name for the audit trail. This cannot be undone.',
+            ) && run(`d${u.id}`, () => userApi.remove(u.id), `${u.name} was deleted`)}>
+            <Trash2 size={15} /> Delete
+          </Button>
+        </div>
       );
     } },
   ];

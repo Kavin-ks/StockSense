@@ -1639,3 +1639,51 @@ a.kpi:hover { border-color: var(--primary); text-decoration: none; }
   flex-direction: column;
   gap: 8px;
 }
+.session-row { background: var(--surface-2); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.row-actions { display: inline-flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+/* Product picker (combobox) */
+.picker { position: relative; }
+.picker-list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none; max-height: 280px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.14); }
+.picker-list li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13.5px; }
+.picker-list li.active { background: var(--primary-soft); }
+.picker-list .picker-empty { color: var(--muted); cursor: default; }
+.pick-panel .section-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.pick-panel .table { margin: 10px 0; }
+.input.pending-pick { border-color: var(--warn); }
+.import-errors { margin: 0; padding-left: 18px; max-height: 180px; overflow-y: auto; font-size: 13px; color: var(--danger); }
+.btn-outline { background: transparent; border-color: var(--border); color: var(--text); }
+.btn-outline:hover:not(:disabled) { background: var(--surface-2); border-color: var(--primary); }
+.move-badge-in { background: var(--success-soft); color: var(--success); }
+.move-badge-out { background: var(--danger-soft); color: var(--danger); }
+.move-badge-internal { background: var(--surface-2); color: var(--muted); }
+/* In vs Out chart. Colours validated for light and dark surfaces (colour-blind separation is backed
+   by position: in above the baseline, out below). */
+:root { --chart-in: #0f9d58; --chart-out: #d93025; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chart-in: #059669; --chart-out: #ef4444; } }
+:root[data-theme="dark"] { --chart-in: #059669; --chart-out: #ef4444; }
+.chart { display: flex; flex-direction: column; gap: 8px; }
+.chart-plot { position: relative; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .bar-in { fill: var(--chart-in); }
+.chart .bar-out { fill: var(--chart-out); }
+.chart .grid-line { stroke: var(--border); stroke-width: 1; }
+.chart .axis-base { stroke: var(--muted); stroke-width: 1; }
+.chart .axis-label { fill: var(--muted); font-size: 11px; }
+.chart .hover-col { fill: var(--text); opacity: .06; }
+.chart-legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend strong { color: var(--text); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.swatch-in { background: var(--chart-in); }
+.swatch-out { background: var(--chart-out); }
+.chart-tooltip { position: absolute; top: 4px; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; box-shadow: 0 6px 18px rgba(0,0,0,.12); white-space: nowrap; z-index: 2; }
+.chart-tooltip span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-table summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.chart-table .table { margin-top: 8px; }
+.activity-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.activity-list li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+.activity-list li:first-child { border-top: 0; }
+.dash-insights .card { min-width: 0; }
+.row-warn td { background: var(--warn-soft); }
+.kpi-value.kpi-value-compact { font-size: 22px; line-height: 1.35; white-space: nowrap; }
+.reports-grid { grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); } @media (max-width: 560px) { .reports-grid { grid-template-columns: 1fr; } }

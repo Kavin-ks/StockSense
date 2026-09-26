@@ -21,7 +21,21 @@ Third-party runtime services: **none**. Email is sent through your own SMTP serv
 
 ## Run locally
 
-Prerequisites: Node 20+ and PostgreSQL 14+.
+Prerequisites: **Node 22.9+** (the scripts use `node --env-file-if-exists`) and PostgreSQL 14+.
+
+**Option A: Docker (one command, no local Node/Postgres needed)**
+
+```bash
+docker compose up --build
+```
+
+```bash
+docker compose run --rm api node src/db/seed.js
+```
+
+Then open http://localhost:8080. OTP / digest emails are printed in `docker compose logs api` unless SMTP is configured.
+
+**Option B: local**
 
 ```bash
 createdb stocksense
@@ -50,6 +64,27 @@ For a real deployment, skip the seed and create your own first manager (see belo
 ```bash
 cd server && npm run create-manager
 ```
+
+Useful extras:
+
+| Command (in `server/`) | What it does |
+|---|---|
+| `npm test` | 26 integration tests on a separate `stocksense_test` database (created automatically) |
+| `npm run db:seed:perf` | Adds ~10,000 ledger moves, rebuilds stock from the ledger, and times the heaviest queries (all under 10 ms here) |
+| `npm run create-manager` | Creates or resets the first manager from `MANAGER_*` values in `.env` |
+
+## How to evaluate (5 minutes)
+
+Use two browsers (or one normal + one private window) so a manager and a staff member are signed in at once.
+
+1. **Validation.** On *Sign up*, type a bad email or weak password: each field explains the problem.
+2. **Manager (`demouser`).** Dashboard: stock value, KPIs, filters (type, status, warehouse, location, category), the in/out chart, activity and reorder suggestions. *Settings → Users*: approve the pending sign-up `newhire01`.
+3. **Receipt.** Receipts → New → 20 chairs → *To Do*. **Staff (`staffuser`)** sees it appear live, opens it and clicks *Validate*: stock rises, the move shows green in Move History, and the manager's screen updates without a refresh.
+4. **Delivery.** As the manager create a delivery for more chairs than exist: the line turns red and the delivery *Waits*. Receive stock and it switches to *Ready* by itself. Staff then *Pick all → Mark packed → Validate*.
+5. **Adjustment.** Stock page → *Update* on Steel Rods → count 3 fewer: the ledger records **−3** in red.
+6. **Roles.** As staff, try *Products → New product*: hidden in the UI and refused by the API (403).
+7. **Data.** Products → *Import CSV* (download the template), *Export CSV*, *Scan* a barcode, *Archive* a product (refused while it has stock).
+8. **Account.** *My Profile*: change the password (other sessions are signed out), see active sessions, set preferences (landing page, date format, default warehouse, alert toggles).
 
 ## Roles: Inventory Manager vs Warehouse Staff
 
@@ -133,3 +168,9 @@ All routes except `/api/auth/*` require `Authorization: Bearer <token>`.
 | GET | `/api/moves` | Stock ledger (move history) |
 | GET/POST/PATCH | `/api/users` | Team management (managers only) |
 | POST · GET | `/api/events/token` · `/api/events/stream?token=` | Live updates (Server-Sent Events) |
+| POST | `/api/operations/:id/pick` · `/pack` · `/check-availability` | Delivery pick → pack → validate |
+| POST | `/api/{products,categories,warehouses,locations}/:id/archive` · `/restore` | Archive instead of delete |
+| PUT · GET · DELETE | `/api/auth/me/password` · `/me/sessions` · `/me/preferences` | Password change, sessions, preferences |
+| DELETE | `/api/users/:id` | Delete an employee (anonymised, history kept) |
+| GET | `/api/reports/{movement,activity,reorder-suggestions,insights,cycle-counts}` | Dashboard insight and reports |
+| GET · POST | `/api/export/*` · `/api/import/products` | CSV export and import |

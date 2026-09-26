@@ -10,7 +10,8 @@
     "db:migrate": "node --env-file-if-exists=.env src/db/migrate.js",
     "db:seed": "node --env-file-if-exists=.env src/db/seed.js",
     "create-manager": "node --env-file-if-exists=.env src/scripts/create-manager.js",
-    "test": "node --env-file-if-exists=.env --import ./test/setup.js --test --test-concurrency=1 'test/*.test.js'"
+    "test": "node --env-file-if-exists=.env --import ./test/setup.js --test --test-concurrency=1 'test/*.test.js'",
+    "db:seed:perf": "node --env-file-if-exists=.env src/scripts/perf-seed.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

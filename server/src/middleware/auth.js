@@ -28,7 +28,7 @@ export function signStreamToken(user) {
 export async function createSession(userId, { userAgent, ip } = {}) {
   const { rows } = await query(
     'INSERT INTO user_sessions (user_id, user_agent, ip_address) VALUES ($1, $2, $3) RETURNING id',
-    [userId, userAgent?.slice(0, 400) ?? null, ip?.slice(0, 64) ?? null],
+    [userId, userAgent?.slice(0, 400) ?? null, ip?.replace(/^::ffff:/, '').slice(0, 64) ?? null], // IPv4-mapped IPv6 -> plain IPv4
   );
   return Number(rows[0].id);
 }

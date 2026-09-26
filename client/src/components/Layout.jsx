@@ -10,6 +10,8 @@ import {
   Boxes,
   Tags,
   History,
+  BarChart3,
+  LogOut,
   Warehouse,
   MapPin,
   ChevronDown,
@@ -43,6 +45,7 @@ const MOBILE_NAV = [
       { to: '/stock', label: 'Stock Quants', icon: Boxes },
       { to: '/products/categories', label: 'Categories', icon: Tags },
       { to: '/moves', label: 'Move History', icon: History },
+      { to: '/reports', label: 'Reports & Counts', icon: BarChart3 },
     ],
   },
   {
@@ -72,7 +75,8 @@ export function Layout() {
   const isProductsActive =
     pathname.startsWith('/products') ||
     pathname.startsWith('/stock') ||
-    pathname.startsWith('/moves');
+    pathname.startsWith('/moves') ||
+    pathname.startsWith('/reports');
   const isSettingsActive = pathname.startsWith('/settings');
   const isProfileActive = pathname.startsWith('/profile');
 
@@ -366,6 +370,24 @@ export function Layout() {
                         <div className="dropdown-item-title">Move History</div>
                         <div className="dropdown-item-desc">
                           Immutable stock ledger & full movement traceability
+                        </div>
+                      </div>
+                    </NavLink>
+
+                    <NavLink
+                      to="/reports"
+                      className={({ isActive }) =>
+                        `dropdown-item-row ${isActive ? 'active' : ''}`
+                      }
+                      onClick={() => setActiveDropdown(null)}
+                    >
+                      <div className="dropdown-icon-box moves">
+                        <BarChart3 size={18} />
+                      </div>
+                      <div className="dropdown-item-details">
+                        <div className="dropdown-item-title">Reports &amp; Counts</div>
+                        <div className="dropdown-item-desc">
+                          Top movers, days of cover, dead stock & cycle counts
                         </div>
                       </div>
                     </NavLink>

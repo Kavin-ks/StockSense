@@ -14,15 +14,19 @@ import { useToast } from './ToastContext.jsx';
  */
 const RealtimeContext = createContext({ status: 'offline', subscribe: () => () => {} });
 
-const ANNOUNCE = { validated: 'validated', canceled: 'canceled', created: 'created' };
+const ANNOUNCE = { validated: 'validated', canceled: 'canceled', created: 'created', packed: 'packed' };
+// Which "Alert triggers" toggle (My Profile) controls toasts for each document type.
+const NOTIFY_KEY = { receipt: 'receipts', delivery: 'deliveries', adjustment: 'adjustments', internal: 'receipts' };
 
 export function RealtimeProvider({ children }) {
-  const { user, refresh, logout } = useAuth();
+  const { user, prefs, refresh, endSession } = useAuth();
   const notify = useToast();
   const [status, setStatus] = useState('offline');
   const listeners = useRef(new Set());
   const me = useRef(user);
   me.current = user;
+  const notifyPrefs = useRef(prefs?.notifications);
+  notifyPrefs.current = prefs?.notifications;
 
   const dispatch = useCallback((event) => {
     const self = me.current;
@@ -33,7 +37,8 @@ export function RealtimeProvider({ children }) {
       refresh();
       if (event.role && event.role !== self.role) notify(`Your role was changed to ${event.role === 'manager' ? 'Inventory Manager' : 'Warehouse Staff'}`, 'info');
     }
-    if (event.topic === 'operations' && event.actorId !== self?.id) {
+    const wanted = notifyPrefs.current?.[NOTIFY_KEY[event.type]] !== false;
+    if (event.topic === 'operations' && event.actorId !== self?.id && wanted) {
       if (ANNOUNCE[event.action]) notify(`${event.actorName ?? 'Someone'} ${ANNOUNCE[event.action]} ${event.reference}`, 'info');
       if (event.action === 'stock-available') notify(`${event.reference} is ready: stock arrived`, 'info');
     }
@@ -69,11 +74,13 @@ export function RealtimeProvider({ children }) {
         attempt = 0;
         setStatus('live');
       });
-      source.addEventListener('revoked', () => {
+      source.addEventListener('revoked', (msg) => {
         closed = true;
         source.close();
-        notify('Your account was deactivated by a manager.', 'error');
-        logout();
+        let message = 'You were signed out.';
+        try { message = JSON.parse(msg.data).message ?? message; } catch { /* keep default */ }
+        notify(message, 'error');
+        endSession();
       });
       source.onmessage = (msg) => {
         try { dispatch(JSON.parse(msg.data)); } catch { /* ignore malformed event */ }
@@ -88,7 +95,7 @@ export function RealtimeProvider({ children }) {
       source?.close();
       setStatus('offline');
     };
-  }, [user?.id, dispatch, logout, notify]);
+  }, [user?.id, dispatch, endSession, notify]);
 
   const subscribe = useCallback((fn) => {
     listeners.current.add(fn);

@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useLiveRefresh } from '../../hooks/useLiveRefresh.js';
 import { Alert, Button, ErrorState, Input, PageHeader, Select, Spinner } from '../../components/ui.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
-import { ScanLine } from 'lucide-react';
+import { Archive, ArchiveRestore, ScanLine } from 'lucide-react';
 import { BarcodeScanner } from '../../components/BarcodeScanner.jsx';
 import { fmtQty } from '../../utils.js';
 
@@ -75,6 +75,19 @@ export default function ProductFormPage() {
   const [staleNotice, setStaleNotice] = useState('');
   const { can } = useAuth();
   const canWrite = can('products.write');
+
+  // Archive hides the product from pickers and lists; history keeps it. The server refuses while
+  // the product still has stock or is on an open document, and explains why.
+  const toggleArchive = async () => {
+    if (product.isActive && !window.confirm(`Archive ${product.name}? It will no longer be selectable on new documents.`)) return;
+    try {
+      await (product.isActive ? productApi.archive(product.id) : productApi.restore(product.id));
+      notify(`${product.name} ${product.isActive ? 'archived' : 'restored'}`);
+      load();
+    } catch (err) {
+      notify(err.message, 'error');
+    }
+  };
   const { data: categories } = useCategories();
   const { data: uoms } = useFetch(() => productApi.uoms(), []);
   const { data: locations } = useLocations();
@@ -115,7 +128,12 @@ export default function ProductFormPage() {
 
   return (
     <>
-      <PageHeader title={isNew ? 'New product' : product.name} subtitle={isNew ? undefined : `SKU ${product.sku}`}>
+      <PageHeader title={isNew ? 'New product' : product.name} subtitle={isNew ? undefined : `SKU ${product.sku}${product.isActive ? '' : ' · archived'}`}>
+        {!isNew && canWrite && (product.isActive ? (
+          <Button variant="danger-ghost" onClick={toggleArchive}><Archive size={15} /> Archive</Button>
+        ) : (
+          <Button variant="secondary" onClick={toggleArchive}><ArchiveRestore size={15} /> Restore</Button>
+        ))}
         <Button variant="ghost" onClick={() => navigate('/products')}>Back</Button>
       </PageHeader>
       <Alert>{form.formError}</Alert>

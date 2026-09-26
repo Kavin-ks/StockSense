@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { KanbanBoard } from '../components/KanbanBoard.jsx';
 import { Download } from 'lucide-react';
 import { Button } from '../components/ui.jsx';
 import { moveApi, exportApi } from '../api/endpoints.js';
@@ -6,7 +7,7 @@ import { useFetch } from '../hooks/useFetch.js';
 import { useQueryState } from '../hooks/useQueryState.js';
 import { FilterBar } from '../components/FilterBar.jsx';
 import { DataTable } from '../components/DataTable.jsx';
-import { ErrorState, Input, PageHeader, Pagination, Select, Spinner } from '../components/ui.jsx';
+import { ErrorState, Input, PageHeader, Pagination, Select, Spinner, ViewToggle } from '../components/ui.jsx';
 import { fmtDate, fmtQty } from '../utils.js';
 
 const DIRECTIONS = [{ value: 'in', label: 'Incoming' }, { value: 'out', label: 'Outgoing' }, { value: 'internal', label: 'Internal' }];
@@ -14,8 +15,10 @@ const OP_PATH = { IN: 'receipts', OUT: 'deliveries', INT: 'transfers', ADJ: 'adj
 
 /** The stock ledger: one row per product per move. In = green, out = red. */
 export default function MoveHistoryPage() {
-  const [q, setQ] = useQueryState({ page: '1' });
-  const params = { search: q.search, type: q.type, direction: q.direction, warehouseId: q.warehouseId, locationId: q.locationId, categoryId: q.categoryId, from: q.from, to: q.to, page: q.page };
+  const [q, setQ] = useQueryState({ page: '1', view: 'list' });
+  const navigate = useNavigate();
+  const kanban = q.view === 'kanban';
+  const params = { search: q.search, type: q.type, direction: q.direction, warehouseId: q.warehouseId, locationId: q.locationId, categoryId: q.categoryId, from: q.from, to: q.to, page: q.page, pageSize: kanban ? 100 : 20 };
   const { data, error, loading, reload } = useFetch(() => moveApi.list(params), [JSON.stringify(params)], { live: ['stock'] });
 
   const opLink = (m) => {
@@ -35,11 +38,29 @@ export default function MoveHistoryPage() {
         <Select placeholder="All directions" value={q.direction ?? ''} options={DIRECTIONS} onChange={(e) => setQ({ direction: e.target.value })} aria-label="Direction" />
         <Input type="date" aria-label="From date" value={q.from ?? ''} onChange={(e) => setQ({ from: e.target.value })} />
         <Input type="date" aria-label="To date" value={q.to ?? ''} onChange={(e) => setQ({ to: e.target.value })} />
+        <div className="spacer" />
+        <ViewToggle view={q.view} onChange={(view) => setQ({ view })} />
       </FilterBar>
       {error && <ErrorState error={error} onRetry={reload} />}
-      {loading && !data ? <Spinner /> : data && (
+      {loading && !data ? <Spinner /> : data && kanban ? (
+        // Ledger rows are all completed moves (no status), so the board groups them by direction.
+        <KanbanBoard columns={['in', 'internal', 'out']} groupKey="direction" items={data.data}
+          renderHeader={(col) => <span className={`badge move-badge-${col}`}>{DIRECTIONS.find((d) => d.value === col).label}</span>}
+          onCardClick={(m) => {
+            const kind = m.reference.split('/')[1];
+            if (m.operationId && OP_PATH[kind]) navigate(`/operations/${OP_PATH[kind]}/${m.operationId}`);
+          }}
+          renderCard={(m) => (<>
+            <strong>{m.reference}</strong>
+            <span>[{m.sku}] {m.productName}</span>
+            <span className={m.direction === 'out' ? 'text-danger' : m.direction === 'in' ? 'text-success' : 'muted'}>
+              {m.direction === 'out' ? '−' : m.direction === 'in' ? '+' : ''}{fmtQty(m.quantity)} {m.uom} · {m.from} → {m.to}
+            </span>
+            <span className="muted small-print">{fmtDate(m.date)}</span>
+          </>)} />
+      ) : data && (
         <>
-          <DataTable rows={data.data} rowClassName={(m) => `move-${m.direction}`} emptyTitle="No moves found" columns={[
+          <DataTable rows={data.data} rowClassName={(m) => `move-${m.direction}`} emptyTitle="No moves found" emptyText="Moves appear here when a receipt, delivery, transfer or adjustment is validated." columns={[
             { key: 'reference', header: 'Reference', render: opLink },
             { key: 'date', header: 'Date', render: (m) => fmtDate(m.date) },
             { key: 'productName', header: 'Product', render: (m) => `[${m.sku}] ${m.productName}` },

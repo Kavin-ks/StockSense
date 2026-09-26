@@ -26,14 +26,15 @@ function toQuery(params = {}) {
   return s ? `?${s}` : '';
 }
 
-async function request(method, path, { body, params } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+async function request(method, path, { body, params, rawBody, contentType } = {}) {
+  const headers = { 'Content-Type': contentType ?? 'application/json' };
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let res;
   try {
-    res = await fetch(`/api${path}${toQuery(params)}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const payload = rawBody ?? (body ? JSON.stringify(body) : undefined);
+    res = await fetch(`/api${path}${toQuery(params)}`, { method, headers, body: payload });
   } catch {
     throw new ApiError(0, 'Cannot reach the server. Check your connection and try again.');
   }
@@ -56,6 +57,8 @@ export const api = {
   put: (path, body) => request('PUT', path, { body }),
   patch: (path, body) => request('PATCH', path, { body }),
   del: (path) => request('DELETE', path),
+  /** POST a plain-text body (e.g. a CSV file's contents). */
+  postText: (path, text, params, contentType = 'text/csv') => request('POST', path, { rawBody: text, params, contentType }),
   upload: async (path, formData) => {
     const headers = {};
     const token = tokenStore.get();

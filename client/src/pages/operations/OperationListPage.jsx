@@ -10,6 +10,14 @@ import { KanbanBoard } from '../../components/KanbanBoard.jsx';
 import { Button, ErrorState, PageHeader, Pagination, Spinner, StatusBadge, ViewToggle } from '../../components/ui.jsx';
 import { OPERATION_META, STATUS_FLOW, fmtDate } from '../../utils.js';
 
+// Empty lists explain what the document is for and what to do next.
+const EMPTY_HINT = {
+  receipt: 'Receipts bring stock in from vendors. Clear the filters, or create one with New.',
+  delivery: 'Deliveries ship stock to customers: To Do, pick, pack, then Validate.',
+  internal: 'Transfers move stock between racks, rooms or warehouses without changing the total.',
+  adjustment: 'Adjustments fix differences between recorded stock and a physical count.',
+};
+
 /** One list page for every operation type (receipts, deliveries, transfers, adjustments). */
 export default function OperationListPage({ type }) {
   const meta = OPERATION_META[type];
@@ -62,7 +70,7 @@ export default function OperationListPage({ type }) {
         ) : (
           <>
             <DataTable columns={columns} rows={data.data} onRowClick={open}
-              emptyTitle={`No ${meta.label.toLowerCase()} found`} emptyText="Try changing the filters or create a new one." />
+              emptyTitle={`No ${meta.label.toLowerCase()} found`} emptyText={EMPTY_HINT[type]} />
             <Pagination meta={data.meta} onPage={(page) => setQ({ page: String(page) })} />
           </>
         )

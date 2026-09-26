@@ -252,64 +252,27 @@ Also built with it: **live updates** (Postgres NOTIFY + SSE), automatic waiting/
 optimistic concurrency on operation and product edits.
 **Follow-ups:** per-user activity log page; let staff record partial picks (see G5).
 
-### G2. Automated tests — HIGH (criteria: debugging skills, reliability)
-- **Build:** Use Node's built-in runner (`node --test`, already set as `npm test`) with a separate test database
-  (`DATABASE_URL=postgres://localhost/stocksense_test`). Put tests in `server/test/`.
-  - Stock engine: receipt increases stock; delivery decreases it; delivery with too little stock throws and leaves
-    **both** `stock_quants` and `stock_moves` unchanged (proves the rollback); adjustment posts the correct +/− difference.
-  - Status machine: can't validate a draft; can't validate twice; can't edit a done operation; cancel works.
-  - References: two operations in the same warehouse get consecutive numbers.
-  - Auth: sign-up validation messages; duplicate login/email; OTP wrong 5 times → blocked.
-  - Optionally use `supertest` for HTTP-level tests of `createApp()` (exported from `app.js`).
-- **Acceptance:** `npm test` passes from a clean test DB (run migrations in a `before` hook).
+### G2. Automated tests — ✅ DONE
+`server/test/` — 26 integration tests on a dedicated `stocksense_test` database (`npm test`): stock engine incl. rollback and concurrent validation, status machine, references, pick/pack, archive guards, approval, employee deletion, password change + sessions, preferences, CSV import, OTP flows.
 
-### G3. Scalable product picker — MEDIUM (criteria: scalability, usability)
-- **Current state:** `LinesEditor.jsx` loads `productApi.list({ pageSize: 100 })` once, so **products after the first 100 can't be picked**.
-- **Build:** Replace the `<select>` with a reusable `ProductPicker` component in `components/`: a text input with debounced
-  search (`productApi.list({ search, pageSize: 20 })`), a dropdown of results showing `[SKU] Name` and on-hand qty,
-  keyboard navigation (↑/↓/Enter/Escape), and the currently selected product shown when editing. Reuse it anywhere a product is chosen.
-- **Acceptance:** With 1,000+ products, any product can be found by SKU or name in under a second.
+### G3. Scalable product picker — ✅ DONE
+`client/src/components/ProductPicker.jsx` — debounced server search (20 results), keyboard navigation, exact SKU first; used by every product line editor.
 
-### G4. Delete / archive for warehouses, locations, products, categories — MEDIUM (criteria: completeness, DB integrity)
-- **Rule:** **Never hard-delete** anything the ledger references. Use soft delete.
-  - `products.is_active` and `locations.is_active` already exist. Add `is_active` to `warehouses` and `product_categories`
-    in migration `002_…sql`.
-  - Endpoints: `POST /api/products/:id/archive` and `/unarchive` (same for the others). Refuse to archive a location
-    or warehouse that still holds stock, with `AppError.conflict('Move the remaining stock out first')`.
-  - Lists already filter `p.is_active` for products. Add the same filter for locations/warehouses, and a
-    "Show archived" toggle in the UI.
-  - Confirm before archiving (use the existing `Modal`).
-- **Acceptance:** An archived product no longer appears in pickers, but its history still shows in Move History.
+### G4. Archive instead of delete — ✅ DONE
+Archive / restore for products, categories, warehouses and locations (`utils/archive.js` guards: refused while stock or open documents remain). Employees can be deleted (anonymised, name kept for audit).
 
-### G5. Delivery pick → pack steps — LOW/MEDIUM (criteria: matches the problem statement)
-- **Current state:** The PDF lists "Pick items → Pack items → Validate". The mock-up uses Draft → Waiting → Ready → Done, which is what's built.
-- **Build (lightweight):** Add `picked_qty NUMERIC` and `packed_at TIMESTAMPTZ` columns on `operation_lines`/`operations`
-  (migration). On a Ready delivery, show a "Pick" checkbox or qty per line and a "Mark packed" button. Only allow
-  Validate once packed. Keep the status enum unchanged, or add `'packed'` carefully and update `STATUS_FLOW` in `client/src/utils.js`.
-- **Also:** hide **Validate** on a `waiting` delivery until all lines are in stock (right now it's shown and returns a clear error). Show "Check availability", which calls `confirm` again.
+### G5. Delivery pick → pack steps — ✅ DONE
+Migration 005 (`picked_qty`, `packed_at`, `packed_by`); `/pick`, `/pack`, `/check-availability`; `PickPanel.jsx`. Validate requires packed; going back to waiting resets picking.
 
 ### G6. Dashboard filters by document type, status & location — ✅ DONE
 See section 5.2. Remaining idea (optional): let the type/status filters also narrow the KPI numbers, instead of only highlighting them.
 
-### G7. Low-stock notifications — LOW (criteria: additional features)
-- **Build:** After any validate/adjustment that decreases stock, check the reorder rules for the affected products
-  (in `operations.service.js` after the transaction commits) and, for any that dropped to or below the minimum:
-  - insert into a new `notifications` table (`id, user_id NULL = all, kind, message, product_id, read_at, created_at`), and
-  - optionally email managers through the existing `utils/mailer.js`.
-  - Make `AlertBell` read `/api/notifications` (unread count, mark as read), and refresh it every ~60s or after actions.
-- **Suggested extra:** a "Create receipt" button on each alert that pre-fills a receipt with `max_qty − on_hand`
-  (the reorder rule's max is already stored for this).
+### G7. Low-stock notifications — ✅ DONE
+Bell + reorder suggestions with pre-filled "Create receipt"; per-user alert toggles (profile) control badges and live toasts; optional daily digest email (`modules/digest`, idempotent per day).
 
-### G8. Small polish items — LOW
-- **Stock page "Update"** (`ProductListPage.jsx`) opens an empty adjustment. Pass the product id
-  (`/operations/adjustments/new?productId=ID`) and pre-fill the first line in `AdjustmentPage.jsx`.
-- **Adjustment detail** shows the posted difference without a sign. Show `+`/`−` and colour it (the counted qty and the ledger direction are both available).
-- **Profile:** add a "Change password" form (current password + new password with the same rules). Add
-  `PUT /api/auth/me/password` and reuse `passwordSchema`.
-- **Pagination UI:** add a page-size selector. The API already accepts `pageSize` up to 100.
-- **Printing:** add a dedicated print layout for receipts/deliveries (company header, signature lines).
+### G8. Small polish items — ✅ DONE
+Stock page Update pre-fills the adjustment; adjustment shows signed +/− change; real password change + sessions in profile; preferences stored in DB and applied (landing page, date/number format, default warehouse); Docker; perf seed; teaching empty states.
 
----
 
 ## 7. Local setup & verification
 
