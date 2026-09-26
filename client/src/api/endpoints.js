@@ -4,6 +4,7 @@ import { api } from './client.js';
 export const authApi = {
   login: (body) => api.post('/auth/login', body),
   signup: (body) => api.post('/auth/signup', body),
+  sendSignupOtp: (body) => api.post('/auth/signup/send-otp', body),
   forgotPassword: (body) => api.post('/auth/forgot-password', body),
   resetPassword: (body) => api.post('/auth/reset-password', body),
   me: () => api.get('/auth/me'),
