@@ -5,6 +5,8 @@ import { useForm } from '../../hooks/useForm.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { toOptions, useCategories, useLocations, useWarehouses } from '../../hooks/useLookups.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { useLiveRefresh } from '../../hooks/useLiveRefresh.js';
 import { Alert, Button, ErrorState, Input, PageHeader, Select, Spinner } from '../../components/ui.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
 import { fmtQty } from '../../utils.js';
@@ -23,7 +25,7 @@ function validateProduct(v, isNew) {
   return e;
 }
 
-function ReorderRules({ product, onChange }) {
+function ReorderRules({ product, onChange, readOnly }) {
   const { data: warehouses } = useWarehouses();
   const notify = useToast();
   const form = useForm({ warehouseId: '', minQty: '', maxQty: '' }, {
@@ -48,15 +50,15 @@ function ReorderRules({ product, onChange }) {
         { key: 'warehouseName', header: 'Warehouse' },
         { key: 'minQty', header: 'Min', align: 'right', render: (r) => fmtQty(r.minQty) },
         { key: 'maxQty', header: 'Max', align: 'right', render: (r) => fmtQty(r.maxQty) },
-        { key: 'x', header: '', align: 'right', render: (r) => <button className="icon-btn" aria-label="Delete rule" onClick={async () => onChange(await productApi.deleteRule(product.id, r.id))}>×</button> },
+        { key: 'x', header: '', align: 'right', render: (r) => !readOnly && <button className="icon-btn" aria-label="Delete rule" onClick={async () => onChange(await productApi.deleteRule(product.id, r.id))}>×</button> },
       ]} />
       <Alert>{form.formError}</Alert>
-      <form className="inline-form" onSubmit={form.handleSubmit} noValidate>
+      {!readOnly && <form className="inline-form" onSubmit={form.handleSubmit} noValidate>
         <Select label="Warehouse" placeholder="Select…" options={toOptions(warehouses)} {...form.bind('warehouseId')} />
         <Input label="Min qty" type="number" min="0" step="any" {...form.bind('minQty')} />
         <Input label="Max qty" type="number" min="0" step="any" {...form.bind('maxQty')} />
         <Button type="submit" loading={form.submitting}>Save rule</Button>
-      </form>
+      </form>}
     </div>
   );
 }
@@ -68,6 +70,9 @@ export default function ProductFormPage() {
   const notify = useToast();
   const [product, setProduct] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const [staleNotice, setStaleNotice] = useState('');
+  const { can } = useAuth();
+  const canWrite = can('products.write');
   const { data: categories } = useCategories();
   const { data: uoms } = useFetch(() => productApi.uoms(), []);
   const { data: locations } = useLocations();
@@ -77,22 +82,32 @@ export default function ProductFormPage() {
     onSubmit: async (v) => {
       const body = { name: v.name, sku: v.sku, categoryId: v.categoryId || undefined, uom: v.uom, unitCost: Number(v.unitCost) };
       if (isNew && Number(v.initialStock) > 0) Object.assign(body, { initialStock: Number(v.initialStock), initialLocationId: Number(v.initialLocationId) });
-      const saved = isNew ? await productApi.create(body) : await productApi.update(id, body);
+      const saved = isNew ? await productApi.create(body) : await productApi.update(id, { ...body, expectedUpdatedAt: product.updatedAt });
+      setStaleNotice('');
       notify(`${saved.name} saved`);
       setProduct(saved);
       if (isNew) navigate(`/products/${saved.id}`, { replace: true });
     },
   });
 
+  const toValues = (p) => ({ ...EMPTY, name: p.name, sku: p.sku, categoryId: p.categoryId ? String(p.categoryId) : '', uom: p.uom, unitCost: String(p.unitCost) });
+  const load = () => productApi.get(id).then((p) => { setProduct(p); form.setValues(toValues(p)); setStaleNotice(''); });
   useEffect(() => {
     if (isNew) return;
-    productApi.get(id).then((p) => {
-      setProduct(p);
-      form.setValues({ ...EMPTY, name: p.name, sku: p.sku, categoryId: p.categoryId ? String(p.categoryId) : '', uom: p.uom, unitCost: String(p.unitCost) });
-    }).catch(setLoadError);
+    load().catch(setLoadError);
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live: stock per location / rules always refresh; unsaved edits to the form are kept.
+  useLiveRefresh(isNew ? null : ['products', 'stock'], async (event) => {
+    const latest = await productApi.get(id).catch(() => null);
+    if (!latest) return;
+    setProduct(latest);
+    if (!form.dirty) form.setValues(toValues(latest));
+    else if (event.topic === 'products' && event.action === 'updated') setStaleNotice(`${event.actorName ?? 'Someone'} changed this product while you were editing.`);
+  }, { filter: (e) => (e.topic === 'products' ? e.id === Number(id) : e.productIds?.includes(Number(id))) });
+
   if (loadError) return <ErrorState error={loadError} />;
+  if (isNew && !canWrite) return <ErrorState error={{ message: 'Only inventory managers can create products.' }} />;
   if (!isNew && !product) return <Spinner />;
 
   return (
@@ -101,7 +116,15 @@ export default function ProductFormPage() {
         <Button variant="ghost" onClick={() => navigate('/products')}>Back</Button>
       </PageHeader>
       <Alert>{form.formError}</Alert>
+      {(staleNotice || form.formError.startsWith('Someone else changed')) && (
+        <div className="alert alert-warn readonly-note">
+          <span>{staleNotice || 'This product was updated by someone else.'} Reload to see the latest version.</span>
+          <Button variant="ghost" onClick={() => load().then(() => form.setFormError(''))}>Reload</Button>
+        </div>
+      )}
+      {!canWrite && <Alert tone="info">Products are maintained by inventory managers. You have view-only access.</Alert>}
       <form className="card form-grid" onSubmit={form.handleSubmit} noValidate>
+        <fieldset className="contents" disabled={!canWrite}>
         <Input label="Name" required {...form.bind('name')} />
         <Input label="SKU / Code" required {...form.bind('sku')} />
         <Select label="Category" placeholder="Uncategorised" options={toOptions(categories)} {...form.bind('categoryId')} />
@@ -111,7 +134,8 @@ export default function ProductFormPage() {
           <Input label="Initial stock (optional)" type="number" min="0" step="any" {...form.bind('initialStock')} />
           <Select label="Initial stock location" placeholder="Select…" options={toOptions(locations, 'fullCode')} {...form.bind('initialLocationId')} />
         </>}
-        <div className="span-all"><Button type="submit" loading={form.submitting}>{isNew ? 'Create product' : 'Save changes'}</Button></div>
+        </fieldset>
+        {canWrite && <div className="span-all"><Button type="submit" loading={form.submitting}>{isNew ? 'Create product' : 'Save changes'}</Button></div>}
       </form>
 
       {product && (
@@ -125,7 +149,7 @@ export default function ProductFormPage() {
               { key: 'quantity', header: 'Quantity', align: 'right', render: (r) => fmtQty(r.quantity) },
             ]} />
           </div>
-          <ReorderRules product={product} onChange={setProduct} />
+          <ReorderRules product={product} onChange={setProduct} readOnly={!canWrite} />
         </div>
       )}
     </>

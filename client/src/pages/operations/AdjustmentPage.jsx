@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { operationApi, productApi } from '../../api/endpoints.js';
 import { useForm } from '../../hooks/useForm.js';
 import { toOptions, useLocations } from '../../hooks/useLookups.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useLiveRefresh } from '../../hooks/useLiveRefresh.js';
 import { Alert, Button, ErrorState, PageHeader, Select, Spinner, StatusBadge, Textarea } from '../../components/ui.jsx';
 import { fmtDate, fmtQty } from '../../utils.js';
 import { LinesEditor, validateLines } from './LinesEditor.jsx';
@@ -14,8 +15,16 @@ function NewAdjustment() {
   const notify = useToast();
   const { data: locations } = useLocations();
   const [recorded, setRecorded] = useState({});
+  const [stockVersion, setStockVersion] = useState(0);
+  const [params] = useSearchParams();
+  // "Update" on the Stock page opens this form with the product (and optionally location) pre-filled.
+  const preset = {
+    locationId: params.get('locationId') ?? '',
+    notes: '',
+    lines: params.get('productId') ? [{ productId: params.get('productId'), countedQty: '' }] : [],
+  };
 
-  const form = useForm({ locationId: '', notes: '', lines: [] }, {
+  const form = useForm(preset, {
     validate: (v) => {
       const e = {};
       if (!v.locationId) e.locationId = 'Location is required';
@@ -39,7 +48,9 @@ function NewAdjustment() {
       for (const p of ps) map[p.id] = p.stockByLocation.find((s) => String(s.locationId) === form.values.locationId)?.quantity ?? 0;
       setRecorded(map);
     }).catch(() => {});
-  }, [productIds, form.values.locationId]);
+  }, [productIds, form.values.locationId, stockVersion]);
+  // Someone else moved stock while this count is being entered: refresh the "Recorded" figures.
+  useLiveRefresh(['stock'], () => setStockVersion((v) => v + 1));
 
   const lineInfo = (l) => {
     if (!l.productId || !form.values.locationId || recorded[l.productId] === undefined) return null;

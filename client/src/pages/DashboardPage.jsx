@@ -71,10 +71,11 @@ export default function DashboardPage() {
   // Carry the warehouse/location/category scope into the list pages the dashboard links to.
   const scopeQuery = new URLSearchParams(Object.entries(scope).filter(([, v]) => v)).toString();
 
-  const summary = useFetch(() => dashboardApi.summary(scope), [scopeKey]);
+  // Live: KPIs move whenever anyone changes stock, documents or products.
+  const summary = useFetch(() => dashboardApi.summary(scope), [scopeKey], { live: ['stock', 'operations', 'products'] });
   const opsParams = { ...scope, type: filters.type, status: filters.status, pageSize: 8 };
-  const ops = useFetch(() => operationApi.list(opsParams), [JSON.stringify(opsParams)]);
-  const { data: alerts } = useFetch(() => dashboardApi.alerts(), []);
+  const ops = useFetch(() => operationApi.list(opsParams), [JSON.stringify(opsParams)], { live: ['operations'] });
+  const { data: alerts } = useFetch(() => dashboardApi.alerts(), [], { live: ['stock', 'products'] });
 
   const data = summary.data;
   const dimType = (type) => Boolean(filters.type) && filters.type !== type;

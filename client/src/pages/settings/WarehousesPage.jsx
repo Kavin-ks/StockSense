@@ -3,6 +3,7 @@ import { warehouseApi } from '../../api/endpoints.js';
 import { useWarehouses } from '../../hooks/useLookups.js';
 import { useForm } from '../../hooks/useForm.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
 import { Alert, Button, ErrorState, Input, Modal, PageHeader, Spinner, Textarea } from '../../components/ui.jsx';
 
@@ -34,15 +35,16 @@ function WarehouseModal({ warehouse, onClose, onSaved }) {
 
 export default function WarehousesPage() {
   const { data, error, loading, reload } = useWarehouses();
-  const [editing, setEditing] = useState(undefined); // undefined = closed, null = new
+  const [editing, setEditing] = useState(undefined);
+  const canWrite = useAuth().can('settings.write'); // undefined = closed, null = new
   return (
     <>
       <PageHeader title="Warehouses" subtitle="Warehouse details and addresses">
-        <Button onClick={() => setEditing(null)}>New warehouse</Button>
+        {canWrite && <Button onClick={() => setEditing(null)}>New warehouse</Button>}
       </PageHeader>
       {error && <ErrorState error={error} onRetry={reload} />}
       {loading && !data ? <Spinner /> : (
-        <DataTable rows={data} onRowClick={setEditing} emptyTitle="No warehouses yet" columns={[
+        <DataTable rows={data} onRowClick={canWrite ? setEditing : undefined} emptyTitle="No warehouses yet" columns={[
           { key: 'name', header: 'Name', render: (w) => <strong>{w.name}</strong> },
           { key: 'shortCode', header: 'Short code', render: (w) => <code>{w.shortCode}</code> },
           { key: 'address', header: 'Address', render: (w) => w.address || '—' },

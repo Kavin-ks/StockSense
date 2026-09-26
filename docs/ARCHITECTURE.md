@@ -64,6 +64,34 @@ any non-done       : --(Cancel)--> canceled
 adjustment         : created as done (counted qty applied immediately)
 ```
 
+## Roles & permissions
+
+`server/src/config/permissions.js` maps permission names to roles (`manager`, `staff`).
+- Routes use `requirePermission('products.write')`. Operation routes check `<type>.manage` (create, edit, cancel) or
+  `<type>.process` (To Do, Validate), based on the document's **stored** type.
+- `requireAuth` loads `role` and `is_active` from the database on every request (a primary-key lookup), so demotion and
+  deactivation apply immediately instead of when the 8-hour JWT expires.
+- `users.service.updateUser` locks the active managers (`FOR UPDATE`) before changing a role or status, so the
+  "at least one active manager" rule holds even with concurrent requests.
+
+## Live updates
+
+```
+service (inside transaction) --publish()--> pg_notify('stocksense_events', {...})
+                                            | delivered on COMMIT only
+API instance(s) --LISTEN--> EventEmitter --> SSE /api/events/stream --> browser EventSource
+                                                                         -> useLiveRefresh(topics) -> refetch
+```
+
+- Topics: `operations`, `stock`, `products`, `categories`, `warehouses`, `locations`, `users`.
+- `users` events only go to managers and to the affected user. A deactivation sends `revoked` and closes the stream.
+- EventSource can't send headers, so the client swaps its session JWT for a **60-second, stream-only token**
+  (`purpose: 'events'`). Session tokens are rejected on the stream, and stream tokens are rejected on the API.
+- The listener reconnects with backoff and sends `resync`. Clients also reconnect with a fresh token and refetch.
+- `refreshDeliveriesForProducts()` runs after every stock change (in the same transaction) to move open deliveries
+  between `waiting` and `ready`.
+- Edits send `expectedUpdatedAt`. A stale save returns `409`, and the UI offers a reload instead of overwriting silently.
+
 ## Security
 
 - bcrypt (cost 12) password hashes. Login responses take the same time for unknown users.

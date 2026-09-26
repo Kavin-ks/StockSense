@@ -241,19 +241,15 @@ adjustment         : created directly as done
 Work through these **in order of priority**. For each: follow the rules in section 3, commit separately, and
 confirm the acceptance criteria are met.
 
-### G1. Role-based access (Manager vs Staff) — HIGH (criteria: security, target users)
-- **Current state:** `users.role` exists (`'manager' | 'staff'`, default `manager`) and the `requireRole(...roles)`
-  middleware exists in `server/src/middleware/auth.js`, but **no route uses it**.
-- **Build:**
-  1. Decide permissions. Suggested: *staff* can view everything and create/validate **internal transfers and adjustments**
-     (picking, shelving, counting). *Manager* can do everything, including receipts, deliveries, products and settings.
-  2. Apply `requireRole('manager')` to write routes in `products.routes.js`, `warehouses.routes.js`, and to receipt/delivery
-     create/validate. Operation routes share one handler, so check the type inside the service or add a small
-     middleware that reads `req.valid.body.type` or loads the operation's type.
-  3. Add a manager-only **Users** settings page to list users and change roles (`GET/PUT /api/users`, new module `modules/users/`).
-  4. Frontend: expose `user.role` from `AuthContext`, and hide or disable buttons the user can't use. Don't rely on
-     the UI alone; the server must enforce it.
-- **Acceptance:** A staff token calling `POST /api/products` gets `403` with a friendly message. Staff don't see the "New product" button.
+### G1. Role-based access (Manager vs Staff) — ✅ DONE
+Built as described in `README.md` → "Roles" and `docs/ARCHITECTURE.md` → "Roles & permissions":
+- `config/permissions.js` (single source of truth), `requirePermission` / `assertCan`
+- `modules/users` (list / add / change role / deactivate, with self-change and last-manager guards)
+- migration `002_roles.sql`, and `npm run create-manager`
+- UI: `can()` in `AuthContext`, Settings → Users, and a role badge.
+Also built with it: **live updates** (Postgres NOTIFY + SSE), automatic waiting/ready switching for deliveries, and
+optimistic concurrency on operation and product edits.
+**Follow-ups:** per-user activity log page; let staff record partial picks (see G5).
 
 ### G2. Automated tests — HIGH (criteria: debugging skills, reliability)
 - **Build:** Use Node's built-in runner (`node --test`, already set as `npm test`) with a separate test database

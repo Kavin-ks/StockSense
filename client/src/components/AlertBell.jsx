@@ -7,7 +7,7 @@ import { fmtQty } from '../utils.js';
 /** Low-stock alerts (products at/below their reorder minimum). */
 export function AlertBell() {
   const [open, setOpen] = useState(false);
-  const { data: alerts = [] } = useFetch(() => dashboardApi.alerts(), []);
+  const { data: alerts = [] } = useFetch(() => dashboardApi.alerts(), [], { live: ['stock', 'products'] });
   const count = alerts?.length ?? 0;
   return (
     <div className="bell-wrap">

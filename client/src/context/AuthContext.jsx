@@ -17,15 +17,24 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   const startSession = useCallback(({ token, user: u }) => { tokenStore.set(token); setUser(u); }, []);
+  // Re-read the profile (role + permissions) after a manager changes it.
+  const refresh = useCallback(() => authApi.me().then(setUser).catch(() => {}), []);
 
-  const value = useMemo(() => ({
-    user,
-    loading,
-    login: async (creds) => startSession(await authApi.login(creds)),
-    signup: async (data) => startSession(await authApi.signup(data)),
-    updateProfile: async (data) => setUser(await authApi.updateMe(data)),
-    logout,
-  }), [user, loading, logout, startSession]);
+  const value = useMemo(() => {
+    const permissions = new Set(user?.permissions ?? []);
+    return {
+      user,
+      loading,
+      isManager: user?.role === 'manager',
+      /** Same permission names the API enforces (server/src/config/permissions.js). */
+      can: (permission) => permissions.has(permission),
+      login: async (creds) => startSession(await authApi.login(creds)),
+      signup: async (data) => startSession(await authApi.signup(data)),
+      updateProfile: async (data) => setUser(await authApi.updateMe(data)),
+      refresh,
+      logout,
+    };
+  }, [user, loading, logout, startSession, refresh]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

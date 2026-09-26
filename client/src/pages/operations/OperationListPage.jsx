@@ -3,6 +3,7 @@ import { operationApi } from '../../api/endpoints.js';
 import { useFetch } from '../../hooks/useFetch.js';
 import { useQueryState } from '../../hooks/useQueryState.js';
 import { FilterBar } from '../../components/FilterBar.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { DataTable } from '../../components/DataTable.jsx';
 import { KanbanBoard } from '../../components/KanbanBoard.jsx';
 import { Button, ErrorState, PageHeader, Pagination, Spinner, StatusBadge, ViewToggle } from '../../components/ui.jsx';
@@ -12,10 +13,11 @@ import { OPERATION_META, STATUS_FLOW, fmtDate } from '../../utils.js';
 export default function OperationListPage({ type }) {
   const meta = OPERATION_META[type];
   const navigate = useNavigate();
+  const { can } = useAuth();
   const [q, setQ] = useQueryState({ view: 'list', page: '1' });
 
   const params = { type, status: q.status, warehouseId: q.warehouseId, locationId: q.locationId, categoryId: q.categoryId, search: q.search, late: q.late, page: q.page, pageSize: q.view === 'kanban' ? 100 : 20 };
-  const { data, error, loading, reload } = useFetch(() => operationApi.list(params), [type, JSON.stringify(params)]);
+  const { data, error, loading, reload } = useFetch(() => operationApi.list(params), [type, JSON.stringify(params)], { live: ['operations'] });
   const open = (op) => navigate(`${meta.path}/${op.id}`);
   const statuses = [...STATUS_FLOW[type].filter((s) => s !== 'done'), 'done', 'canceled'];
 
@@ -31,7 +33,7 @@ export default function OperationListPage({ type }) {
   return (
     <>
       <PageHeader title={meta.label}>
-        <Button onClick={() => navigate(`${meta.path}/new`)}>New</Button>
+        {can(`${type}.manage`) && <Button onClick={() => navigate(`${meta.path}/new`)}>New</Button>}
       </PageHeader>
 
       <FilterBar filters={q} onChange={setQ} fields={['search', 'status', 'warehouseId', 'locationId', 'categoryId']}

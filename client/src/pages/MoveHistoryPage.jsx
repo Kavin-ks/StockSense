@@ -14,7 +14,7 @@ const OP_PATH = { IN: 'receipts', OUT: 'deliveries', INT: 'transfers', ADJ: 'adj
 export default function MoveHistoryPage() {
   const [q, setQ] = useQueryState({ page: '1' });
   const params = { search: q.search, type: q.type, direction: q.direction, warehouseId: q.warehouseId, locationId: q.locationId, categoryId: q.categoryId, from: q.from, to: q.to, page: q.page };
-  const { data, error, loading, reload } = useFetch(() => moveApi.list(params), [JSON.stringify(params)]);
+  const { data, error, loading, reload } = useFetch(() => moveApi.list(params), [JSON.stringify(params)], { live: ['stock'] });
 
   const opLink = (m) => {
     const kind = m.reference.split('/')[1];

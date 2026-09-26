@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLiveRefresh } from './useLiveRefresh.js';
 
 /**
  * Load data from an async function and re-run when `deps` change.
  * Ignores out-of-order responses so fast filter changes never show stale data.
+ * `options.live` = topics that trigger a silent background refetch (other users' changes).
  */
-export function useFetch(fn, deps = []) {
+export function useFetch(fn, deps = [], { live } = {}) {
   const [state, setState] = useState({ data: null, error: null, loading: true });
   const callId = useRef(0);
 
@@ -21,5 +23,6 @@ export function useFetch(fn, deps = []) {
   }, deps);
 
   useEffect(() => { run(); }, [run]);
+  useLiveRefresh(live, run);
   return { ...state, reload: run };
 }

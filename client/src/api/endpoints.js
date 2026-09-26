@@ -57,3 +57,13 @@ export const operationApi = {
 export const moveApi = {
   list: (params) => api.get('/moves', params),
 };
+
+export const userApi = {
+  list: (params) => api.get('/users', params),
+  create: (body) => api.post('/users', body),
+  update: (id, body) => api.patch(`/users/${id}`, body),
+};
+
+export const eventsApi = {
+  token: () => api.post('/events/token'),
+};
