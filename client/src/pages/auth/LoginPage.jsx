@@ -22,7 +22,7 @@ export default function LoginPage() {
   return (
     <AuthShell title="Sign in" subtitle="Welcome back. Manage your inventory in one place.">
       <form onSubmit={form.handleSubmit} noValidate className="stack">
-        <Alert>{form.formError}</Alert>
+        <Alert tone={/waiting for approval/i.test(form.formError) ? 'info' : 'error'}>{form.formError}</Alert>
         <Input label="Login ID" autoComplete="username" autoFocus {...form.bind('loginId')} />
         <Input label="Password" type="password" autoComplete="current-password" {...form.bind('password')} />
         <Button type="submit" loading={form.submitting}>Sign in</Button>

@@ -62,6 +62,9 @@ export const userApi = {
   list: (params) => api.get('/users', params),
   create: (body) => api.post('/users', body),
   update: (id, body) => api.patch(`/users/${id}`, body),
+  approve: (id, body) => api.post(`/users/${id}/approve`, body),
+  reject: (id) => api.post(`/users/${id}/reject`),
+  pendingCount: () => api.get('/users/pending-count'),
 };
 
 export const eventsApi = {

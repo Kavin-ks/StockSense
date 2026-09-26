@@ -2,6 +2,7 @@
 // Usage: npm run db:seed   (skips if users already exist)
 import { pool, query } from './pool.js';
 import * as auth from '../modules/auth/auth.service.js';
+import * as users from '../modules/users/users.service.js';
 import * as wh from '../modules/warehouses/warehouses.service.js';
 import * as products from '../modules/products/products.service.js';
 import * as ops from '../modules/operations/operations.service.js';
@@ -13,11 +14,12 @@ async function seed() {
   if (rows[0].n > 0) return console.log('database already seeded — skipping');
 
   // Demo accounts only (the real first manager comes from `npm run create-manager`).
+  // Manager: bootstrap directly. Staff: added by the manager. newhire01: a sign-up still awaiting approval.
   const { user } = await auth.signup({ loginId: 'demouser', name: 'Demo Manager', email: 'demo@stocksense.local', password: 'Demo@12345' });
-  await query(`UPDATE users SET role = 'manager' WHERE id = $1`, [user.id]);
-  const { user: staff } = await auth.signup({ loginId: 'staffuser', name: 'Demo Staff', email: 'staff@stocksense.local', password: 'Staff@12345' });
-  await query('UPDATE users SET created_by = $1 WHERE id = $2', [user.id, staff.id]);
+  await query(`UPDATE users SET role = 'manager', status = 'active', approved_at = now() WHERE id = $1`, [user.id]);
   const actor = { id: user.id, name: user.name };
+  await users.createUser({ loginId: 'staffuser', name: 'Demo Staff', email: 'staff@stocksense.local', role: 'staff', password: 'Staff@12345' }, actor);
+  await auth.signup({ loginId: 'newhire01', name: 'New Hire', email: 'newhire@stocksense.local', password: 'Newhire@123' });
 
   const main = await wh.createWarehouse({ name: 'Main Warehouse', shortCode: 'WH', address: '12 Industrial Estate, Chennai' }, actor);
   const second = await wh.createWarehouse({ name: 'Secondary Warehouse', shortCode: 'WH2', address: '4 Port Road, Chennai' }, actor);
@@ -63,7 +65,7 @@ async function seed() {
   await ops.confirmOperation(d3.id, actor); // not enough chairs -> waiting
   await ops.createOperation({ type: 'internal', warehouseId: main.id, sourceLocationId: mainStock.id, destLocationId: secondStock.id, scheduledDate: day(2), lines: [{ productId: table.id, quantity: 5 }] }, actor);
 
-  console.log('seeded. Manager: demouser / Demo@12345   Staff: staffuser / Staff@12345');
+  console.log('seeded. Manager: demouser / Demo@12345   Staff: staffuser / Staff@12345   Pending sign-up: newhire01 / Newhire@123');
 }
 
 seed()

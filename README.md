@@ -37,8 +37,13 @@ In a second terminal:
 cd client && npm install && npm run dev
 ```
 
-Open http://localhost:5173. Seeded demo accounts: **demouser / Demo@12345** (Inventory Manager) and
-**staffuser / Staff@12345** (Warehouse Staff).
+Open http://localhost:5173. Seeded demo accounts:
+
+| Login ID | Password | Role |
+|---|---|---|
+| `demouser` | `Demo@12345` | Inventory Manager |
+| `staffuser` | `Staff@12345` | Warehouse Staff |
+| `newhire01` | `Newhire@123` | Sign-up **waiting for approval** (can't sign in until a manager approves it) |
 
 For a real deployment, skip the seed and create your own first manager (see below):
 
@@ -61,9 +66,15 @@ resolved list to the UI, so buttons are hidden with exactly the same rules. Ever
 | Stock adjustments (physical counts) | ✅ | ✅ |
 | Products, categories, reorder rules | ✅ | view only |
 | Warehouses & locations | ✅ | view only |
-| Users: add members, change role, deactivate | ✅ | ❌ |
+| Users: approve sign-ups, add members, change role, deactivate | ✅ | ❌ |
 
-- **Public sign-up creates Warehouse Staff.** Managers are promoted by another manager.
+- **Sign-up needs a manager's approval.** Anyone can sign up from the login page, but the account is created as
+  *pending* Warehouse Staff and **cannot sign in** until a manager approves it under **Settings → Users**. The manager
+  can choose the role when approving, or reject the request. Managers see new requests live (a toast and a counter
+  next to *Users*).
+- **Members a manager adds directly are active immediately**, since the manager already vouches for them.
+- Account lifecycle (`users.status`): `pending` → `active` ⇄ `deactivated`. A rejected sign-up is deleted
+  (it never acted, so nothing references it), which frees its Login ID and email.
 - **First manager:** put `MANAGER_LOGIN_ID`, `MANAGER_NAME`, `MANAGER_EMAIL` and `MANAGER_PASSWORD` in `server/.env`
   (git-ignored), then run `npm run create-manager`. Running it again is safe: it updates that manager or resets its password.
 - Role changes and deactivation apply **immediately**: the API re-reads the user on every request, and a deactivated user's open tabs are signed out.

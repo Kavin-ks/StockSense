@@ -4,7 +4,7 @@
  * Reads MANAGER_LOGIN_ID, MANAGER_NAME, MANAGER_EMAIL, MANAGER_PASSWORD from server/.env
  * (git-ignored). Idempotent:
  *   - no user with that login id -> creates a manager
- *   - user exists               -> promotes to manager, re-activates, and sets the password
+ *   - user exists               -> promotes to manager, activates (approves if pending), sets the password
  * Usage: npm run create-manager
  */
 import { z } from 'zod';
@@ -32,9 +32,11 @@ async function main() {
   const hash = await hashPassword(password);
 
   const { rows } = await query(
-    `INSERT INTO users (login_id, name, email, password_hash, role) VALUES ($1,$2,$3,$4,'manager')
+    `INSERT INTO users (login_id, name, email, password_hash, role, status, approved_at)
+     VALUES ($1,$2,$3,$4,'manager','active',now())
      ON CONFLICT (login_id) DO UPDATE
-       SET role = 'manager', is_active = TRUE, name = EXCLUDED.name, email = EXCLUDED.email,
+       SET role = 'manager', status = 'active', approved_at = COALESCE(users.approved_at, now()),
+           name = EXCLUDED.name, email = EXCLUDED.email,
            password_hash = EXCLUDED.password_hash, updated_at = now()
      RETURNING (xmax = 0) AS created`,
     [loginId, name, email, hash],

@@ -33,7 +33,7 @@ router.get('/stream', asyncHandler(async (req, res) => {
 
   const send = (event) => {
     if (event.topic === 'users' && event.id === user.id) {
-      if (event.isActive === false) {
+      if (event.status === 'deactivated') {
         res.write(`event: revoked\ndata: {}\n\n`);
         return res.end();
       }

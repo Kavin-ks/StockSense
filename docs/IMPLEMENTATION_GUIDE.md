@@ -244,7 +244,8 @@ confirm the acceptance criteria are met.
 ### G1. Role-based access (Manager vs Staff) — ✅ DONE
 Built as described in `README.md` → "Roles" and `docs/ARCHITECTURE.md` → "Roles & permissions":
 - `config/permissions.js` (single source of truth), `requirePermission` / `assertCan`
-- `modules/users` (list / add / change role / deactivate, with self-change and last-manager guards)
+- `modules/users` (list / **approve or reject sign-ups** / add / change role / deactivate, with self-change and last-manager guards)
+- self sign-up creates a *pending* account that can't sign in until a manager approves it (migration `003_user_approval.sql`)
 - migration `002_roles.sql`, and `npm run create-manager`
 - UI: `can()` in `AuthContext`, Settings → Users, and a role badge.
 Also built with it: **live updates** (Postgres NOTIFY + SSE), automatic waiting/ready switching for deliveries, and

@@ -71,6 +71,9 @@ adjustment         : created as done (counted qty applied immediately)
   `<type>.process` (To Do, Validate), based on the document's **stored** type.
 - `requireAuth` loads `role` and `is_active` from the database on every request (a primary-key lookup), so demotion and
   deactivation apply immediately instead of when the 8-hour JWT expires.
+- Account lifecycle is an enum, `users.status`: `pending` (self sign-up, no session issued) → `active` ⇄ `deactivated`.
+  `approved_by`/`approved_at` record who let each user in (a CHECK constraint requires `approved_at` for non-pending users).
+  Approve and reject lock the row and require `pending`, so two managers handling the same request get a clear 409.
 - `users.service.updateUser` locks the active managers (`FOR UPDATE`) before changing a role or status, so the
   "at least one active manager" rule holds even with concurrent requests.
 
